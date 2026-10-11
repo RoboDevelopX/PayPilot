@@ -43,4 +43,3 @@ Idempotency: invoices are created with a `PayPal-Request-Id`, and every payout u
 - **Plain HTML, CSS and JavaScript** for the UI, with no build step.
 - **pytest** for tests, run by GitHub Actions.
 - **Render** for hosting, via the `render.yaml` blueprint.
-- **Claude Code** helped write the code.
