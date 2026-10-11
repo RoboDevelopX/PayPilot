@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PayPilot</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">✈</span>
+      <div>
+        <h1>PayPilot</h1>
+        <p>Your AI co-pilot for getting paid and paying smart</p>
+      </div>
+    </div>
+    <div class="modes" id="modes"></div>
+  </header>
+
+  <main class="layout">
+    <!-- Rules -->
+    <section class="panel rules">
+      <h2>Your rules</h2>
+      <p class="hint">The AI proposes. These rules decide. The agent cannot change them.</p>
+      <form id="rules-form">
+        <label>Auto-approve limit per payment (L)
+          <div class="money"><span>$</span><input name="spending_limit" type="number" step="0.01" min="0" /></div>
+        </label>
+        <label>Daily auto-approve budget
+          <div class="money"><span>$</span><input name="daily_limit" type="number" step="0.01" min="0" /></div>
+        </label>
+        <label>Hard cap (never exceeded, even with approval)
+          <div class="money"><span>$</span><input name="hard_cap" type="number" step="0.01" min="0" /></div>
+        </label>
+        <label>Largest invoice the agent may create
+          <div class="money"><span>$</span><input name="invoice_cap" type="number" step="0.01" min="0" /></div>
+        </label>
+        <label>Allowed currencies
+          <input name="allowed_currencies" type="text" placeholder="USD, EUR" />
+        </label>
+        <label class="check"><input name="approve_new_recipients" type="checkbox" /> Ask before paying someone new</label>
+        <h3>Follow-ups</h3>
+        <label class="check"><input name="auto_reminders" type="checkbox" /> Remind unpaid invoices automatically</label>
+        <div class="row">
+          <label>First after (hours)<input name="reminder_after_hours" type="number" step="0.1" min="0" /></label>
+          <label>Then every (hours)<input name="reminder_every_hours" type="number" step="0.1" min="0.1" /></label>
+        </div>
+        <label>Max reminders per invoice<input name="max_reminders" type="number" min="0" max="10" /></label>
+        <button type="submit" class="primary">Save rules</button>
+        <div id="rules-msg" class="msg"></div>
+      </form>
+      <div class="meter">
+        <div class="meter-label"><span>Auto-approved today</span><span id="spent-label"></span></div>
+        <div class="meter-bar"><div id="spent-bar"></div></div>
+      </div>
+      <div class="formula">
+        auto-approve if <b>a ≤ L</b><br />ask you if <b>a &gt; L</b>
+      </div>
+    </section>
+
+    <!-- Chat -->
+    <section class="panel chat">
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <div class="chips" id="chips">
+        <button data-q="Invoice alice@example.com $1,200 for the website redesign, due in 30 days">Invoice a client</button>
+        <button data-q="Pay bob@example.com $25 for lunch">Pay a small amount</button>
+        <button data-q="Send carol@example.com $400 for the photo shoot">Pay above my limit</button>
+        <button data-q="Which invoices are still unpaid?">What's unpaid?</button>
+        <button data-q="Remind alice@example.com about her invoice">Send a reminder</button>
+      </div>
+      <form id="chat-form" class="composer">
+        <textarea id="chat-input" rows="1" placeholder="Describe a payment task, e.g. bill dana@example.com $300 for consulting" maxlength="2000"></textarea>
+        <button type="submit" class="primary" id="send-btn">Send</button>
+      </form>
+    </section>
+
+    <!-- Right column -->
+    <section class="panel side">
+      <nav class="tabs">
+        <button data-tab="approvals" class="active">Approvals <span id="pending-badge" class="badge hidden"></span></button>
+        <button data-tab="invoices">Invoices</button>
+        <button data-tab="payouts">Payouts</button>
+        <button data-tab="activity">Audit log</button>
+      </nav>
+      <div class="tab" id="tab-approvals"></div>
+      <div class="tab hidden" id="tab-invoices"></div>
+      <div class="tab hidden" id="tab-payouts"></div>
+      <div class="tab hidden" id="tab-activity"></div>
+      <div class="side-actions">
+        <button id="run-reminders">Run follow-ups now</button>
+        <button id="reset" class="hidden">Reset demo</button>
+      </div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
