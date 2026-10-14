@@ -7,6 +7,7 @@ import re
 from decimal import Decimal
 
 import pytest
+from pydantic import SecretStr
 
 from app.models import Client, Invoice, utcnow
 from app.policy.engine import MLSignals
@@ -239,3 +240,23 @@ def test_dashboard_with_ml_shows_advice(make_app):
     page = client.get("/").text
     assert "Acme Corp is likely to pay late" in page and "consider net-7" in page
     assert "late" in page.split("consider net-7", 1)[1]  # the reasons follow the advice
+
+
+def test_optional_password_protects_everything_but_health_and_webhooks(make_app):
+    client, _ = make_app(app_password=SecretStr("s3cret-demo"))
+    assert client.get("/").status_code == 401
+    assert client.get("/api/approvals").status_code == 401
+    assert client.get("/", auth=("paypilot", "wrong")).status_code == 401
+    assert client.get("/", auth=("paypilot", "s3cret-demo")).status_code == 200
+    assert client.get("/healthz").status_code == 200
+    assert client.get("/static/style.css").status_code == 200
+    assert client.post("/webhooks/paypal", json={"id": "x"}).status_code == 400  # signature check
+
+
+def test_rate_limit_cannot_be_dodged_with_a_fake_forwarded_for(make_app):
+    llm = ScriptedLLM(*[message(text("ok")) for _ in range(5)])
+    client, _ = make_app(llm, chat_rate_limit_per_minute=1)
+    first = {"x-forwarded-for": "1.1.1.1, 10.0.0.9"}
+    spoofed = {"x-forwarded-for": "2.2.2.2, 10.0.0.9"}  # same real client behind the proxy
+    assert client.post("/api/chat", json={"message": "a"}, headers=first).status_code == 200
+    assert client.post("/api/chat", json={"message": "b"}, headers=spoofed).status_code == 429

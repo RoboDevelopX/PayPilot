@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     followup_interval_seconds: int = Field(default=300, ge=10)
     http_timeout_seconds: float = 20.0
     ml_enabled: bool = True  # load ml/artifacts/*.joblib (advisory signals only)
+    # Optional HTTP Basic password for a public deployment (webhooks and /healthz stay open).
+    app_username: str = "paypilot"
+    app_password: SecretStr = SecretStr("")
 
     @field_validator("paypal_base_url")
     @classmethod
@@ -62,6 +65,17 @@ class Settings(BaseSettings):
     @property
     def paypal_configured(self) -> bool:
         return bool(self.paypal_client_id and self.paypal_client_secret.get_secret_value())
+
+    @property
+    def paypal_simulated(self) -> bool:
+        """Demo mode without keys: every PayPal call is answered from recordings."""
+        return self.demo_mode and not self.paypal_configured
+
+    @property
+    def assistant_label(self) -> str:
+        if self.active_llm:
+            return f"{self.active_llm}: {self.llm_model}"
+        return "demo script (no AI key)" if self.demo_mode else "not configured"
 
     @property
     def anthropic_configured(self) -> bool:

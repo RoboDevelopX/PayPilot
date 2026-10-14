@@ -1,26 +1,44 @@
-# Render Blueprint: New > Blueprint > pick this repo. Fill the secret values when prompted.
+# Render Blueprint for PayPilot: Render dashboard > New > Blueprint > pick this repo.
+# Render asks for every `sync: false` value; leave any you don't have blank.
+#
+# Why this works (Render): Render builds the repo with buildCommand, then runs
+# startCommand with $PORT set and routes https://<name>.onrender.com to it. It polls
+# healthCheckPath and only switches traffic to a new deploy once that returns 200.
+# The free plan sleeps after ~15 idle minutes and its disk is wiped on every deploy,
+# so SQLite starts empty and DEMO_MODE=1 reseeds the sample data on boot.
 services:
   - type: web
     name: paypilot
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # --factory: app.main exposes create_app(), not a global app object.
+    startCommand: uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT
     healthCheckPath: /healthz
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
+      - key: DEMO_MODE
+        value: "1"
+      - key: DATABASE_URL
+        value: sqlite:///./paypilot.db
+      - key: LLM_PROVIDER
+        value: auto
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET
         sync: false
       - key: PAYPAL_INVOICER_EMAIL
         sync: false
+      - key: PAYPAL_PAYER_EMAIL
+        sync: false
       - key: PAYPAL_WEBHOOK_ID
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: APP_PASSWORD
         sync: false
-      - key: PAYPAL_BASE_URL
-        value: https://api-m.sandbox.paypal.com
-      - key: ANTHROPIC_MODEL
-        value: claude-opus-5-5
+      - key: FOLLOWUP_INTERVAL_SECONDS
+        value: "300"

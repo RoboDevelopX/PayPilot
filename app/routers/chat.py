@@ -23,9 +23,10 @@ class ChatError(Exception):
 
 
 def client_key(request: Request) -> str:
-    # Render sits behind a proxy; the first X-Forwarded-For hop is the real client.
+    # Behind Render's proxy, the last X-Forwarded-For entry is the address the proxy saw.
+    # Earlier entries come from the client and can be faked to dodge the rate limit.
     fwd = request.headers.get("x-forwarded-for", "")
-    return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    return fwd.split(",")[-1].strip() or (request.client.host if request.client else "unknown")
 
 
 async def run_chat(request: Request, body: ChatIn) -> dict[str, Any]:

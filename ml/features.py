@@ -18,9 +18,12 @@ import datetime as dt
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
+
+if TYPE_CHECKING:  # pandas is only needed for training, not by the running app
+    import pandas as pd
 
 # ------------------------------------------------------------ late-payment risk
 RISK_FEATURES = (
@@ -91,6 +94,8 @@ def _ts(value: str | None) -> dt.datetime | None:
 
 def risk_frame(invoices: pd.DataFrame) -> pd.DataFrame:
     """Training rows: one per invoice, features from that client's earlier invoices only."""
+    import pandas as pd
+
     rows = []
     for _, group in invoices.groupby("client_id", sort=False):
         history = [
@@ -148,6 +153,8 @@ def payout_features(
 
 def anomaly_frame(payouts: pd.DataFrame) -> pd.DataFrame:
     """Training rows: one per payout, features from earlier payouts only."""
+    import pandas as pd
+
     df = payouts.sort_values(["at", "payout_id"]).reset_index(drop=True)
     times = df["at"].to_numpy(dtype=float)
     amounts = df["amount"].to_numpy(dtype=float)

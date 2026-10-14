@@ -21,6 +21,7 @@ from app.money import parse_amount_string
 from app.paypal import client_from_settings
 from app.paypal.errors import PayPalError
 from app.paypal.invoices import InvoiceDraft, InvoicingAPI, LineItem, build_create_payload
+from app.services.actions import request_id
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -70,9 +71,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     action_id = str(uuid.uuid4())
     try:
-        created = api.create_draft(draft, request_id=f"{action_id}-create")
+        created = api.create_draft(draft, request_id=request_id(action_id, "invoice.create"))
         print(f"created draft {created.paypal_id} (status {created.status})")
-        sent = api.send(created.paypal_id, request_id=f"{action_id}-send")
+        sent = api.send(created.paypal_id, request_id=request_id(action_id, "invoice.send"))
     except PayPalError as e:
         print(f"PayPal error [{type(e).__name__}]: {e.user_message()}", file=sys.stderr)
         return 1

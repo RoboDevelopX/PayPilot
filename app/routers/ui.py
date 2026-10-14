@@ -115,7 +115,8 @@ def render(request: Request, name: str, status_code: int = 200, **context: Any) 
     base = {
         "demo_mode": s.demo_mode,
         "paypal_configured": s.paypal_configured,
-        "llm": f"{s.active_llm}: {s.llm_model}" if s.active_llm else None,
+        "paypal_simulated": s.paypal_simulated,
+        "llm": s.assistant_label,
         "ml": c.ml.status,
         "pending_count": _pending_count(c),
         "path": request.url.path,

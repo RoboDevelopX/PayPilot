@@ -1,0 +1,19 @@
+{
+  "id": "INV2-DEMO-0000-0000-0000",
+  "status": "DRAFT",
+  "detail": {
+    "invoice_number": "0000",
+    "reference": "",
+    "invoice_date": "2026-10-14",
+    "currency_code": "USD",
+    "note": "",
+    "payment_term": {"term_type": "DUE_ON_DATE_SPECIFIED", "due_date": "2026-10-28"},
+    "metadata": {"create_time": "2026-10-14T12:00:00Z"}
+  },
+  "invoicer": {"business_name": "PayPilot Demo Studio"},
+  "primary_recipients": [],
+  "items": [],
+  "amount": {"currency_code": "USD", "value": "0.00"},
+  "due_amount": {"currency_code": "USD", "value": "0.00"},
+  "links": []
+}

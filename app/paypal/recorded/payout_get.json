@@ -1,0 +1,24 @@
+{
+  "batch_header": {
+    "payout_batch_id": "DEMO-BATCH-0000",
+    "batch_status": "SUCCESS",
+    "time_created": "2026-10-14T12:00:00Z",
+    "time_completed": "2026-10-14T12:00:05Z",
+    "sender_batch_header": {"sender_batch_id": ""},
+    "amount": {"currency": "USD", "value": "0.00"},
+    "fees": {"currency": "USD", "value": "0.00"}
+  },
+  "items": [
+    {
+      "payout_item_id": "DEMO-ITEM-0000",
+      "transaction_status": "SUCCESS",
+      "payout_batch_id": "DEMO-BATCH-0000",
+      "payout_item": {
+        "recipient_type": "EMAIL",
+        "amount": {"currency": "USD", "value": "0.00"},
+        "receiver": "recipient@example.com"
+      }
+    }
+  ],
+  "links": []
+}
