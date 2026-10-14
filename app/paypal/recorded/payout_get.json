@@ -1,24 +1,52 @@
 {
   "batch_header": {
-    "payout_batch_id": "DEMO-BATCH-0000",
-    "batch_status": "SUCCESS",
-    "time_created": "2026-10-14T12:00:00Z",
-    "time_completed": "2026-10-14T12:00:05Z",
-    "sender_batch_header": {"sender_batch_id": ""},
-    "amount": {"currency": "USD", "value": "0.00"},
-    "fees": {"currency": "USD", "value": "0.00"}
+    "payout_batch_id": "RY2BBRGTQNSH8",
+    "batch_status": "PENDING",
+    "time_created": "2026-10-14T14:13:06Z",
+    "sender_batch_header": {
+      "sender_batch_id": "bc65e432-0e3d-4c86-bb87-a23ab50fb110",
+      "email_subject": "You have a payment (PayPal sandbox)",
+      "email_message": "PayPilot smoke test"
+    },
+    "funding_source": "BALANCE",
+    "amount": {
+      "currency": "USD",
+      "value": "1.00"
+    }
   },
   "items": [
     {
-      "payout_item_id": "DEMO-ITEM-0000",
-      "transaction_status": "SUCCESS",
-      "payout_batch_id": "DEMO-BATCH-0000",
+      "payout_item_id": "RSK8XFR6MDG3U",
+      "transaction_status": "PENDING",
+      "payout_batch_id": "RY2BBRGTQNSH8",
       "payout_item": {
         "recipient_type": "EMAIL",
-        "amount": {"currency": "USD", "value": "0.00"},
-        "receiver": "recipient@example.com"
-      }
+        "amount": {
+          "currency": "USD",
+          "value": "1.00"
+        },
+        "note": "PayPilot smoke test",
+        "receiver": "someone@example.com",
+        "sender_item_id": "bc65e432-0e3d-4c86-bb87-a23ab50fb110",
+        "recipient_wallet": "PAYPAL",
+        "purpose": "GOODS"
+      },
+      "links": [
+        {
+          "href": "https://api.sandbox.paypal.com/v1/payments/payouts-item/RSK8XFR6MDG3U",
+          "rel": "item",
+          "method": "GET",
+          "encType": "application/json"
+        }
+      ]
     }
   ],
-  "links": []
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v1/payments/payouts/RY2BBRGTQNSH8?page_size=1000&page=1",
+      "rel": "self",
+      "method": "GET",
+      "encType": "application/json"
+    }
+  ]
 }

@@ -6,6 +6,8 @@ import copy
 from types import SimpleNamespace
 from typing import Any
 
+SANDBOX = "https://api.sandbox.paypal.com"
+
 
 def text(t: str) -> SimpleNamespace:
     return SimpleNamespace(type="text", text=t)
@@ -94,6 +96,8 @@ class FakeSandbox:
                 code, json={"name": "ERR", "message": "boom", "debug_id": "dbg-fail"}
             )
         rid = request.headers.get("PayPal-Request-Id")
+        if path == "/v1/payments/payouts":
+            rid = None  # like the real sandbox: Payouts ignores PayPal-Request-Id
         if rid and rid in self.by_request_id:
             return self.by_request_id[rid]
         body = json.loads(request.content) if request.content else {}
@@ -151,11 +155,21 @@ class FakeSandbox:
         if path == "/v1/payments/payouts" and method == "POST":
             sbid = body["sender_batch_header"]["sender_batch_id"]
             if sbid in self.payouts:
-                return httpx.Response(
+                href = f"{SANDBOX}/v1/payments/payouts/{self.payouts[sbid]['batch_id']}"
+                return httpx.Response(  # the real sandbox's answer, captured Oct 2026
                     400,
                     json={
                         "name": "USER_BUSINESS_ERROR",
-                        "message": "Batch with given sender_batch_id already exists",
+                        "message": "User business error.",
+                        "debug_id": "dbg-dup",
+                        "details": [
+                            {
+                                "field": "SENDER_BATCH_ID",
+                                "location": "body",
+                                "issue": "Batch with given sender_batch_id already exists",
+                                "link": [{"href": href, "rel": "self", "method": "GET"}],
+                            }
+                        ],
                     },
                 )
             batch_id = f"BATCH{len(self.payouts) + 1:04d}"

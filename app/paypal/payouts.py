@@ -4,8 +4,13 @@ Endpoints (checked against developer.paypal.com, Oct 2026):
   POST /v1/payments/payouts             create a batch (we always send one item)
   GET  /v1/payments/payouts/{batch_id}  batch + item status
 Why this works (double-payment protection): `sender_batch_id` is our action id.
-PayPal refuses a second batch with the same sender_batch_id for 30 days, and
-we also send a PayPal-Request-Id, so a retried request can never pay twice.
+PayPal refuses a second batch with the same sender_batch_id for 30 days, so a
+retried request can never pay twice. Payouts does NOT replay the first answer
+for a repeated PayPal-Request-Id (checked live, Oct 2026): it returns 400
+USER_BUSINESS_ERROR with a SENDER_BATCH_ID detail that links to the original
+batch. `create` follows that link and returns the original batch, so a retry
+after a timeout reports "already sent" instead of "failed" (which would free
+up the spending caps for money that already left).
 """
 
 from __future__ import annotations
@@ -14,6 +19,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from app.paypal.client import PayPalClient
+from app.paypal.errors import PayPalConflict, PayPalValidationError
 
 
 @dataclass(frozen=True)
@@ -55,13 +61,27 @@ class PayoutsAPI:
                 }
             ],
         }
-        resp = self.client.request(
-            "POST",
-            "/v1/payments/payouts",
-            json=body,
-            request_id=request_id,
-            prefer_representation=False,
-        )
+        try:
+            resp = self.client.request(
+                "POST",
+                "/v1/payments/payouts",
+                json=body,
+                request_id=request_id,
+                prefer_representation=False,
+            )
+        except PayPalValidationError as e:
+            existing = _existing_batch_id(e)
+            if existing is None:
+                raise
+            if not existing:
+                raise PayPalConflict(
+                    "This payout was already sent (duplicate sender_batch_id).",
+                    status=e.status,
+                    name=e.name,
+                    details=e.details,
+                    debug_id=e.debug_id,
+                ) from e
+            return self.get(existing)
         header = resp.data.get("batch_header", {})
         return PayoutInfo(
             batch_id=header.get("payout_batch_id", ""),
@@ -80,3 +100,16 @@ class PayoutsAPI:
             item_status=items[0].get("transaction_status"),
             debug_id=resp.debug_id,
         )
+
+
+def _existing_batch_id(e: PayPalValidationError) -> str | None:
+    """Batch id from a duplicate-sender_batch_id error; "" if PayPal gave no link; None if
+    the error is something else."""
+    for d in e.details:
+        if d.get("field") == "SENDER_BATCH_ID" and "already exists" in d.get("issue", ""):
+            for link in d.get("link") or []:
+                href = link.get("href", "")
+                if "/v1/payments/payouts/" in href:
+                    return href.rstrip("/").rsplit("/", 1)[-1]
+            return ""
+    return None
