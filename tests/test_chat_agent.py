@@ -51,6 +51,9 @@ def test_chat_to_invoice_end_to_end(make_app, sandbox):
     result = json.loads(llm.tool_results(1)[0]["content"])
     assert result["status"] == "executed"
     assert result["data"]["total"] == "450.00"
+    # The payer's link reaches the chat card ("Open the sandbox invoice").
+    pay_url = body["actions"][0]["data"]["pay_url"]
+    assert pay_url.startswith("https://www.sandbox.paypal.com/invoice/p/#")
 
     # PayPal got a create (with an idempotency key) and a send.
     create = sandbox.calls_to("/v2/invoicing/invoices")[0]

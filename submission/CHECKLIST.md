@@ -9,8 +9,8 @@ Deadline: **Thursday Nov 12, 2026, 12:00 pm Pacific** (1:30 am Nov 13 in India),
 - ✓ **Live sandbox check.** Passed on 2026-10-14 with US sandbox accounts: `make invoice`, `make smoke ARGS="--llm --record"` (every step PASS) and `pytest -m live`.
 - ✓ **Real recordings committed.** `invoice.json` and `payout_get.json` are captures from the US sandbox (emails redacted); `payout_create.json` is still hand-written.
 - ✓ **AI tools rule checked.** The rules don't require disclosing AI coding tools; the README lists the AI used inside the product.
-- ☐ **Deploy to Render** from the blueprint, fill in the secrets, and open `/healthz`. Using Render also makes the project eligible for Render's sponsor prize ("all eligible submissions that use any Render tools").
-- ☐ **Webhook:** create it in the sandbox app, set `PAYPAL_WEBHOOK_ID` on Render, pay a sandbox invoice as the Personal account, and check that PayPilot marks it paid.
+- ✓ **Deployed to Render** on 2026-10-14: https://paypilot-ytst.onrender.com. `/healthz` reports the PayPal sandbox, Gemini and both ML models, and a payout from chat works. Using Render also makes the project eligible for Render's sponsor prize ("all eligible submissions that use any Render tools").
+- ✓ **Webhook** set up on 2026-10-14: `PAYPAL_WEBHOOK_ID` is on Render, and a $5 sandbox invoice sent from the hosted app's chat and paid as the US Personal account shows as Paid in PayPilot.
 - ☐ **Repo About box:** add a one-line description and the Render URL as the website, so judges land on the live app.
 - ☐ **Record the video** with [DEMO_SCRIPT.md](DEMO_SCRIPT.md): under 3 minutes, showing the app running, no music you don't own, no unneeded third-party brands. Upload it to **YouTube as Public**.
 - ☐ **Write the `[TODO: personal story]` parts** in [DEVPOST.md](DEVPOST.md) and the video opener, and add the video and app links.
@@ -61,7 +61,7 @@ Deadline: **Thursday Nov 12, 2026, 12:00 pm Pacific** (1:30 am Nov 13 in India),
 | No copyrighted music or unneeded trademarks in the demo | ☐ | reminder in `DEMO_SCRIPT.md` |
 | Demo video under 3 minutes, public on YouTube | ☐ | `DEMO_SCRIPT.md` is 2:30 |
 | License visible in the repo's About box | ✓ | GitHub detects MIT from `LICENSE` |
-| Working build judges can use, with testing instructions | ◐ | run instructions in `README.md`; hosted URL after the Render deploy; testing text in `DEVPOST.md` |
+| Working build judges can use, with testing instructions | ✓ | hosted at https://paypilot-ytst.onrender.com; run instructions in `README.md`; testing text in `DEVPOST.md` |
 | English materials | ✓ | |
 
 ## ML honesty
@@ -90,7 +90,7 @@ Deadline: **Thursday Nov 12, 2026, 12:00 pm Pacific** (1:30 am Nov 13 in India),
 | Python 3.11+, FastAPI, Pydantic v2, SQLite with SQLAlchemy, httpx | ✓ |
 | scikit-learn, LLM tool use (Gemini or Claude) | ✓ |
 | Jinja + HTMX UI, responsive, light and dark themes | ✓ |
-| Render with `render.yaml` | ✓ (blueprint written; not deployed yet) |
+| Render with `render.yaml` | ✓ (deployed from the blueprint) |
 | ruff and black | ✓ (CI and pre-commit) |
 | Makefile: setup, run, test, seed, train (plus demo, lint, smoke) | ✓ |
 | Fresh clone runs with `make setup && make demo` | ✓ (checked on a clean copy) |

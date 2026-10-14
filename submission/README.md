@@ -6,6 +6,8 @@
 
 Everything runs against the **PayPal sandbox**. The base URL is locked to the sandbox in code, and every page says SANDBOX.
 
+**Live app:** [paypilot-ytst.onrender.com](https://paypilot-ytst.onrender.com) (demo mode on the sandbox; the free instance can take about a minute to wake).
+
 | Look at | Where |
 |---|---|
 | Full README (setup, deploy, design notes) | [../README.md](../README.md) |
