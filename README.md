@@ -6,6 +6,8 @@ PayPilot turns plain-language requests into PayPal work: it creates and sends in
 
 Built for the **Build What's Next with PayPal and AI** hackathon. **PayPal sandbox only**: the PayPal base URL is locked to `api-m.sandbox.paypal.com` in code, and the UI says so on every page.
 
+**Try it live:** [paypilot-ytst.onrender.com](https://paypilot-ytst.onrender.com) runs in labeled demo mode on the PayPal sandbox. The free instance sleeps when idle, so the first visit can take about a minute.
+
 > **The AI proposes, the code disposes.** The language model never calls PayPal and never sees PayPal credentials. It can only return a structured action (a tool call). Pydantic validates it, a pure policy engine decides, and only then does PayPilot's own code call PayPal, or hold the action for your approval.
 
 ## Contents
@@ -181,7 +183,7 @@ Simulated PayPal answers carry a `PayPal-Debug-Id` starting with `demo-recorded-
 1. Push the repo to GitHub. In Render, choose **New > Blueprint** and pick the repo; [render.yaml](render.yaml) defines one free web service.
 2. Render asks for each secret. Leave any you don't have blank: with none at all you get a fully labeled demo. Set **APP_PASSWORD** to put the site behind HTTP Basic auth (user `paypilot`); `/healthz`, `/webhooks/paypal` and `/static` stay open.
 3. Open `https://<your-service>.onrender.com/healthz` to see which parts are live.
-4. **Webhooks (optional, 2 min).** In your sandbox app on developer.paypal.com, under **Webhooks**, add `https://<your-service>.onrender.com/webhooks/paypal` with the events `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`, `INVOICING.INVOICE.REFUNDED`, `PAYMENT.PAYOUTSBATCH.SUCCESS`, `PAYMENT.PAYOUTSBATCH.DENIED` and the `PAYMENT.PAYOUTS-ITEM.*` events. Copy the **Webhook ID** into `PAYPAL_WEBHOOK_ID` in Render. Without webhooks, the follow-up job still polls open invoices.
+4. **Webhooks (optional, 2 min).** In your sandbox app on developer.paypal.com, under **Webhooks**, add `https://<your-service>.onrender.com/webhooks/paypal` with the events `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`, `INVOICING.INVOICE.REFUNDED`, `PAYMENT.PAYOUTSBATCH.SUCCESS`, `PAYMENT.PAYOUTSBATCH.DENIED` and the `PAYMENT.PAYOUTS-ITEM.*` events. Copy the **Webhook ID**, add it on the Render service's **Environment** page as a new variable `PAYPAL_WEBHOOK_ID` (Render doesn't create variables you left blank), and redeploy. Test it with a real invoice payment: the dashboard's webhook simulator sends events PayPal won't verify. Without webhooks, the follow-up job still polls open invoices.
 
 The free plan sleeps after about 15 idle minutes and wipes its disk on every deploy, so the SQLite database starts empty and demo data is reseeded on boot. The chat is rate-limited per IP (20 messages a minute) so a public demo can't burn through an AI quota.
 
