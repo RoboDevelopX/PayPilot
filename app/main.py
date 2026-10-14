@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse
 from app.config import Settings, get_settings
 from app.container import build_container
 from app.db import init_db, make_engine, make_session_factory
-from app.routers import chat, invoices
+from app.routers import approvals, chat, invoices
 
 log = logging.getLogger("paypilot")
 
@@ -65,6 +65,7 @@ def create_app(
     )
     app.include_router(chat.router)
     app.include_router(invoices.router)
+    app.include_router(approvals.router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, object]:

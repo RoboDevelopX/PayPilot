@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import BigInteger, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Client, Invoice, Payout, PolicyRow, Recipient, utcnow
@@ -34,9 +34,9 @@ def spend(session: Session, currency: str, now: dt.datetime | None = None) -> Sp
     month_start = day_start.replace(day=1)
 
     def total(since: dt.datetime) -> Decimal:
-        # Sum the cents column directly; MoneyType converts values one by one, not aggregates.
+        # The column stores integer cents; sum it as a plain integer, then convert once.
         cents = session.scalar(
-            select(func.coalesce(func.sum(Payout.__table__.c.amount), 0)).where(
+            select(func.coalesce(func.sum(Payout.amount, type_=BigInteger), 0)).where(
                 Payout.currency == currency,
                 Payout.status.in_(SPEND_STATUSES),
                 Payout.created_at >= since,

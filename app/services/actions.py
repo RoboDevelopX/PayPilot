@@ -27,6 +27,7 @@ from app.models import Action, Approval, Invoice, Payout, utcnow
 from app.money import fmt
 from app.paypal.errors import PayPalError
 from app.paypal.invoices import InvoiceDraft, InvoicingAPI, LineItem
+from app.paypal.payouts import PayoutsAPI
 from app.policy.engine import (
     Level,
     MLSignals,
@@ -105,7 +106,7 @@ class ActionService:
         sessions: sessionmaker[Session],
         *,
         invoicing: InvoicingAPI | None = None,
-        payouts: Any = None,  # app.paypal.payouts.PayoutsAPI (M5)
+        payouts: PayoutsAPI | None = None,
         risk_scorer: RiskScorer | None = None,
         anomaly_scorer: AnomalyScorer | None = None,
         drafter: ReminderDrafter | None = None,
@@ -454,6 +455,7 @@ class ActionService:
                     Action.kind == "send_reminder", Action.status == "held"
                 )
             }
+        self.refresh_payouts()
         outcomes = []
         now = self.clock()
         for invoice_id in open_ids:
@@ -541,19 +543,104 @@ class ActionService:
         return self.execute_payout(action_id)
 
     def execute_payout(self, action_id: str) -> Outcome:
-        """Send an approved payout. The PayPal call itself is wired in M5."""
+        """Send an approved payout through PayPal Payouts (sender_batch_id = action id)."""
         with session_scope(self.sessions) as s:
             act = s.get(Action, action_id)
             payout = s.query(Payout).filter_by(action_id=action_id).one()
-            act.status = payout.status = "failed"
+            if self.payouts is None:
+                act.status = payout.status = "failed"
+                audit.record(
+                    s,
+                    actor="system",
+                    event="execution_skipped",
+                    action_id=action_id,
+                    reason="PayPal payouts are not configured",
+                )
+                return Outcome("failed", "PayPal payouts are not configured", action_id)
+            rid = request_id(action_id, "payout.create")
+            try:
+                info = self.payouts.create(
+                    receiver_email=payout.recipient.email,
+                    amount=payout.amount,
+                    currency=payout.currency,
+                    note=payout.note,
+                    sender_batch_id=action_id,
+                    request_id=rid,
+                )
+            except PayPalError as e:
+                act.status = payout.status = "failed"  # failed payouts free up the caps
+                act.result = {"error": str(e), "kind": type(e).__name__}
+                audit.record(
+                    s,
+                    actor="paypal",
+                    event="paypal_error",
+                    action_id=action_id,
+                    paypal_request_id=rid,
+                    paypal_debug_id=e.debug_id,
+                    error=str(e),
+                    kind=type(e).__name__,
+                )
+                return Outcome("paypal_error", e.user_message(), action_id)
+            payout.paypal_batch_id = info.batch_id
+            payout.paypal_status = info.batch_status
+            payout.status = act.status = "executed"
+            act.result = {"paypal_batch_id": info.batch_id, "batch_status": info.batch_status}
             audit.record(
                 s,
-                actor="system",
-                event="execution_skipped",
+                actor="paypal",
+                event="payout_sent",
                 action_id=action_id,
-                reason="PayPal payouts are not configured",
+                paypal_request_id=rid,
+                paypal_debug_id=info.debug_id,
+                paypal_batch_id=info.batch_id,
+                batch_status=info.batch_status,
             )
-            return Outcome("failed", "PayPal payouts are not configured", action_id)
+            return Outcome(
+                "executed",
+                f"Sent {fmt(payout.amount, payout.currency)} to {payout.recipient.email} "
+                f"(PayPal batch {info.batch_id}, status {info.batch_status})",
+                action_id,
+                data={"paypal_batch_id": info.batch_id, "batch_status": info.batch_status},
+            )
+
+    def refresh_payouts(self) -> int:
+        """Poll PayPal for payouts still in flight (webhook fallback). Returns how many changed."""
+        if self.payouts is None:
+            return 0
+        with session_scope(self.sessions) as s:
+            pending = [
+                (p.id, p.paypal_batch_id)
+                for p in s.query(Payout).filter(
+                    Payout.status == "executed",
+                    Payout.paypal_batch_id.is_not(None),
+                    Payout.paypal_status.in_(("PENDING", "PROCESSING")),
+                )
+            ]
+        changed = 0
+        for payout_id, batch_id in pending:
+            try:
+                info = self.payouts.get(batch_id)
+            except PayPalError as e:
+                log.warning("could not refresh payout %s: %s", batch_id, e)
+                continue
+            with session_scope(self.sessions) as s:
+                p = s.get(Payout, payout_id)
+                status = info.item_status or info.batch_status
+                if status != p.paypal_status:
+                    p.paypal_status = status
+                    if status in {"DENIED", "FAILED", "RETURNED", "BLOCKED", "REFUNDED"}:
+                        p.status = "failed"
+                    audit.record(
+                        s,
+                        actor="paypal",
+                        event="payout_status_changed",
+                        action_id=p.action_id,
+                        paypal_batch_id=batch_id,
+                        paypal_status=status,
+                        source="poll",
+                    )
+                    changed += 1
+        return changed
 
     # ------------------------------------------------------------ read-only
     def get_status(self, a: GetStatus, *, source: str = "chat") -> Outcome:
