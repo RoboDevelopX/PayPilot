@@ -73,6 +73,13 @@ Technical problems the build had to solve, if you want to mention any:
 - Approvals from a phone notification instead of the dashboard.
 - Postgres and a proper job queue for multi-user use.
 
+## Testing instructions (for the Devpost testing field)
+
+- **Hosted app:** [TODO: Render URL]. It runs in labeled demo mode on the PayPal **sandbox**, with sample clients and payees, so no keys or logins are needed. The free Render instance sleeps when idle; the first page load can take about a minute.
+- **Try this in Chat:** `Pay sam@example.com $40 for the icon set` (paid automatically), `Pay sam@example.com $120 for the brand guide` (held for approval), `Pay jo@example.com $160 for event photos` (escalated by the anomaly model), then approve them on the Approvals page. Every step appears in the Audit log. The hosted app is shared, so if earlier visitors used up today's $200 payout cap, a payout is blocked with that reason; the cap can be raised on the Rules page.
+- **Run it yourself in two minutes, no keys:** `git clone https://github.com/RoboDevelopX/PayPilot.git && cd PayPilot && make setup && make demo`, then open http://localhost:8000 (Python 3.11+).
+- **Against your own PayPal sandbox:** the README's "Setup with the real PayPal sandbox" section takes under 10 minutes, and `make smoke` checks every PayPal call live.
+
 ## Built with
 
 python, fastapi, pydantic, sqlalchemy, sqlite, httpx, jinja, htmx, scikit-learn, numpy, pandas, paypal-invoicing, paypal-payouts, paypal-webhooks, google-gemini, anthropic-claude, render
