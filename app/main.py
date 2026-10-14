@@ -72,7 +72,11 @@ def create_app(
         return {
             "ok": True,
             "paypal": "sandbox" if settings.paypal_configured else "not configured",
-            "llm": settings.anthropic_model if settings.anthropic_configured else "not configured",
+            "llm": (
+                f"{settings.active_llm}:{settings.llm_model}"
+                if settings.active_llm
+                else "not configured"
+            ),
             "demo_mode": settings.demo_mode,
         }
 

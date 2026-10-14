@@ -32,7 +32,9 @@ async def chat(body: ChatIn, request: Request) -> dict[str, Any]:
             headers={"Retry-After": str(int(retry_after) + 1)},
         )
     if c.agent is None:
-        raise HTTPException(503, "The AI assistant is not configured (set ANTHROPIC_API_KEY).")
+        raise HTTPException(
+            503, "The AI assistant is not configured (set GEMINI_API_KEY or ANTHROPIC_API_KEY)."
+        )
 
     conversation_id, history, lock = c.conversations.get(body.conversation_id)
     if c.conversations.user_turns(history) >= MAX_USER_TURNS:
