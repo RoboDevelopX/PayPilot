@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · PayPilot (sandbox)</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">PayPilot</a>
+    <span class="badge sandbox" title="Connected to the PayPal sandbox only. No real money moves.">SANDBOX</span>
+    {% if demo_mode %}<span class="badge demo" title="Seeded sample data">DEMO MODE</span>{% endif %}
+    <nav aria-label="Main">
+      {% set links = [("/", "Dashboard"), ("/chat", "Chat"), ("/approvals", "Approvals"), ("/invoices", "Invoices"), ("/payouts", "Payouts"), ("/rules", "Rules"), ("/audit", "Audit log")] %}
+      {% for href, text in links %}
+        <a href="{{ href }}" {% if path == href %}aria-current="page"{% endif %}>{{ text }}{% if href == "/approvals" %}<span id="approval-count" class="count" data-n="{{ pending_count }}">{{ pending_count or "" }}</span>{% endif %}</a>
+      {% endfor %}
+    </nav>
+  </header>
+  {% if demo_mode %}
+  <div class="banner demo" role="note"><strong>Demo mode:</strong> the data here is seeded sample data, and recorded PayPal sandbox responses stand in if the live sandbox is unreachable. Everything is sandbox; no real money moves.</div>
+  {% endif %}
+  {% if not paypal_configured %}
+  <div class="banner warn" role="note">PayPal sandbox keys are not set, so invoices and payouts can't be sent. Add <code>PAYPAL_CLIENT_ID</code> and <code>PAYPAL_CLIENT_SECRET</code> to the environment.</div>
+  {% endif %}
+  <main>{% block content %}{% endblock %}</main>
+  <div id="toast" role="alert"></div>
+  <footer>
+    PayPal sandbox only · The AI proposes, the code disposes ·
+    AI: {{ llm or "not configured" }} · ML: {{ ml }} · <a href="/docs">API docs</a>
+  </footer>
+</body>
+</html>

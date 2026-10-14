@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% macro totals(map) -%}
+  {% if map %}{% for cur, amt in map.items() %}{{ amt | money(cur) }}{% if not loop.last %} · {% endif %}{% endfor %}{% else %}{{ 0 | money }}{% endif %}
+{%- endmacro %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="grid stats">
+  <div class="card stat">
+    <div class="label">Outstanding</div>
+    <div class="value">{{ totals(d.outstanding) }}</div>
+    <small>{{ d.outstanding_count }} open invoice{{ "s" if d.outstanding_count != 1 }}</small>
+  </div>
+  <div class="card stat">
+    <div class="label">Overdue</div>
+    <div class="value" {% if d.overdue_count %}style="color: var(--danger)"{% endif %}>{{ totals(d.overdue) }}</div>
+    <small>{{ d.overdue_count }} past due</small>
+  </div>
+  <div class="card stat">
+    <div class="label">Paid this month</div>
+    <div class="value">{{ totals(d.paid_this_month) }}</div>
+    <small>{{ d.paid_this_month_count }} invoice{{ "s" if d.paid_this_month_count != 1 }}</small>
+  </div>
+  <a class="card stat" href="/approvals" style="text-decoration: none; color: inherit">
+    <div class="label">Waiting for you</div>
+    <div class="value">{{ d.pending_approvals }}</div>
+    <small>{% if d.escalated_approvals %}<span class="pill danger">{{ d.escalated_approvals }} flagged as unusual</span>{% else %}approvals{% endif %}</small>
+  </a>
+</div>
+
+<div class="grid two" style="margin-top: 1rem">
+  <section class="card stack">
+    <h2>Payouts vs your caps</h2>
+    {% set sp = d.spend %}
+    {% for label, used, cap, pct in [("Today", sp.today, sp.daily_cap, sp.today_pct), ("This month", sp.month, sp.monthly_cap, sp.month_pct)] %}
+    <div>
+      <div class="row spread"><span>{{ label }}</span><span>{{ used | money }} of {{ cap | money }}</span></div>
+      <div class="bar {{ 'danger' if pct >= 90 else 'warn' if pct >= 70 else '' }}" role="progressbar" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ label }} spend"><span style="width: {{ pct }}%"></span></div>
+    </div>
+    {% endfor %}
+    <small>Payouts up to {{ sp.auto_approve_limit | money }} to allowlisted recipients go out on their own. Anything above the caps is blocked, even with approval. <a href="/rules">Change rules</a></small>
+  </section>
+
+  <section class="card">
+    <h2>Advice</h2>
+    {% if d.insights %}
+      <ul style="margin: 0; padding-left: 1.2rem">
+      {% for a in d.insights %}
+        <li><strong>{{ a.text }}</strong><br><small>Why: {{ a.reasons | join("; ") }}</small></li>
+      {% endfor %}
+      </ul>
+    {% elif d.ml == "off" %}
+      <p class="muted">The ML models are off, so there's no advice yet. Run <code>make train</code>.</p>
+    {% else %}
+      <p class="muted">No client looks likely to pay late right now.</p>
+    {% endif %}
+    <small class="muted">Estimates from a model trained on synthetic data; they only change reminder timing and tone.</small>
+  </section>
+</div>
+
+<div class="grid two" style="margin-top: 1rem">
+  <section class="card">
+    <h2>Open invoices most likely to be paid late</h2>
+    {% if d.at_risk %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Client</th><th class="num">Amount</th><th>Due</th><th>Risk</th></tr></thead>
+      <tbody>
+      {% for i in d.at_risk %}
+        <tr>
+          <td>{{ i.client }}{% if i.number %} <small>#{{ i.number }}</small>{% endif %}</td>
+          <td class="num">{{ i.amount | money(i.currency) }}</td>
+          <td>{{ i.due_date }}{% if i.days_overdue %} <span class="pill danger">{{ i.days_overdue }}d late</span>{% endif %}</td>
+          <td><span class="pill {{ i.risk | risk_level }}" title="{{ i.reasons | join('; ') }}">{{ (i.risk * 100) | round | int }}%</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+      <p class="muted">No open invoices with a risk score.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Payouts flagged as unusual</h2>
+    {% if d.anomalies %}
+      <ul style="margin: 0; padding-left: 1.2rem">
+      {% for p in d.anomalies %}
+        <li>{{ p.amount | money(p.currency) }} to {{ p.recipient }} <small>({{ p.created_at | when }})</small><br><small>{{ p.reason }}</small></li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Nothing unusual among sent payouts.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

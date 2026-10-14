@@ -1,0 +1,16 @@
+{# One action result from the policy engine: o = Outcome.to_dict() (+ "tool") #}
+<div class="card outcome {{ o.status | style }}">
+  <div class="row spread">
+    <strong>{{ KIND_LABELS.get(o.tool, o.tool | label | capitalize) if o.tool else "Result" }}</strong>
+    <span class="pill {{ o.status | style }}">{{ o.status | label }}</span>
+  </div>
+  <div>{{ o.message }}</div>
+  {% if o.reasons %}<ul>{% for r in o.reasons %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+  {% set data = o.data or {} %}
+  {% if data.pay_url %}<div><a href="{{ data.pay_url }}" target="_blank" rel="noopener">Open the sandbox invoice</a></div>{% endif %}
+  {% if data.subject %}<details><summary>Reminder text</summary><pre>{{ data.subject }}
+
+{{ data.note }}</pre></details>{% endif %}
+  {% if o.status in ("needs_approval", "escalated") %}<div><a href="/approvals">Review it in Approvals</a></div>{% endif %}
+  {% if o.action_id %}<small><a href="/audit?action_id={{ o.action_id }}">Audit trail</a></small>{% endif %}
+</div>

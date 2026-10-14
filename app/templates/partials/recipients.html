@@ -1,0 +1,32 @@
+<section class="card stack" id="recipients">
+  <h2>Recipient allowlist</h2>
+  <p class="muted" style="margin: 0">Payouts to anyone not on this list always wait for your approval.</p>
+  {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+  {% if recipients %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Recipient</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for r in recipients %}
+      <tr>
+        <td>{{ r.name or r.email }}<br><small>{{ r.email }}</small></td>
+        <td>{% if r.allowlisted %}<span class="pill ok">allowlisted</span>{% else %}<span class="pill muted">needs approval</span>{% endif %}</td>
+        <td>
+          <form hx-post="/ui/recipients" hx-target="#recipients" hx-swap="outerHTML">
+            <input type="hidden" name="email" value="{{ r.email }}">
+            <input type="hidden" name="name" value="{{ r.name }}">
+            <input type="hidden" name="allowlisted" value="{{ 'false' if r.allowlisted else 'true' }}">
+            <button class="small" type="submit">{{ "Remove" if r.allowlisted else "Allow" }}</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% endif %}
+  <form class="form-grid" hx-post="/ui/recipients" hx-target="#recipients" hx-swap="outerHTML">
+    <label>Email<input name="email" type="email" required placeholder="sam@example.com"></label>
+    <label>Name<input name="name" maxlength="100" placeholder="Sam Lee"></label>
+    <input type="hidden" name="allowlisted" value="true">
+    <div style="align-self: end"><button type="submit">Add to allowlist</button></div>
+  </form>
+</section>
