@@ -13,7 +13,7 @@ Deadline: **Thursday Nov 12, 2026, 12:00 pm Pacific** (1:30 am Nov 13 in India),
 - ✓ **Webhook** set up on 2026-10-14: `PAYPAL_WEBHOOK_ID` is on Render, and a $5 sandbox invoice sent from the hosted app's chat and paid as the US Personal account shows as Paid in PayPilot.
 - ☐ **Repo About box:** add a one-line description and the Render URL as the website, so judges land on the live app.
 - ☐ **Record the video** with [DEMO_SCRIPT.md](DEMO_SCRIPT.md): under 3 minutes, showing the app running, no music you don't own, no unneeded third-party brands. Upload it to **YouTube as Public**.
-- ☐ **Write the `[TODO: personal story]` parts** in [DEVPOST.md](DEVPOST.md) and the video opener, and add the video and app links.
+- ◐ **Personal story parts** in [DEVPOST.md](DEVPOST.md) and the video opener are drafted from the real build history. Read every sentence and change anything that isn't true for you, then add the video link.
 - ☐ **Fill in the Devpost form**: paste the sections from DEVPOST.md, the repo URL, the YouTube link, and the testing instructions from DEVPOST.md. Judges must be able to use the app free of charge until Dec 15, 2026, so keep the Render service and its keys in place until then.
 
 ## Product
@@ -100,7 +100,7 @@ Deadline: **Thursday Nov 12, 2026, 12:00 pm Pacific** (1:30 am Nov 13 in India),
 | File | Status |
 |---|---|
 | [README.md](README.md) and the main [README](../README.md): Mermaid diagram, APIs, AI tools, setup under 10 minutes, demo mode, license | ✓ |
-| [DEVPOST.md](DEVPOST.md) with `[TODO: personal story]` placeholders | ✓ (placeholders are yours to fill) |
+| [DEVPOST.md](DEVPOST.md), personal parts drafted from the real build | ✓ (check every sentence is true for you) |
 | [DEMO_SCRIPT.md](DEMO_SCRIPT.md), 2:30 shot list | ✓ |
 | [INTERVIEW_NOTES.md](INTERVIEW_NOTES.md): 5 resume bullets, 8 questions, improvements with real data | ✓ |
 | This checklist | ✓ |
