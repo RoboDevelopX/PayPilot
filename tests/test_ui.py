@@ -74,6 +74,7 @@ def test_chat_turn_renders_reply_and_action_card(make_app, sandbox):
     assert r.status_code == 200
     assert "Sent invoice #0001" in r.text
     assert "executed" in r.text
+    assert "Open the sandbox invoice" in r.text  # the payer's link, for testing the payment
     assert "&lt;b&gt;$450&lt;/b&gt;" in r.text  # user text is escaped, never rendered as HTML
     conv = re.search(r'id="conversation_id" name="conversation_id" value="([^"]+)"', r.text)
     assert conv and 'hx-swap-oob="true"' in r.text
