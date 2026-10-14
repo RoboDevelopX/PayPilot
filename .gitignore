@@ -7,3 +7,7 @@ venv/
 .pytest_cache/
 .DS_Store
 Thumbs.db
+.ruff_cache/
+*.db-wal
+*.db-shm
+ml/reports/*.png.tmp

@@ -1,0 +1,33 @@
+[project]
+name = "paypilot"
+version = "0.2.0"
+description = "Your AI co-pilot for getting paid and paying smart (PayPal sandbox + Claude + scikit-learn)."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = [
+    "E501",  # black owns line length
+    "S101",  # assert is fine in tests
+    "B008",  # FastAPI's Depends() in defaults is idiomatic
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S311"]
+"ml/**" = ["S311"]  # numpy/random for synthetic data, not crypto
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["live: hits the real PayPal sandbox or Anthropic API (skipped unless keys are set)"]
