@@ -1,0 +1,19 @@
+<form class="card stack" id="policy-form" hx-post="/ui/policy" hx-target="this" hx-swap="outerHTML">
+  <h2>Payout and invoice rules</h2>
+  {% if saved %}<div class="flash ok">Saved. New proposals use these rules from now on.</div>{% endif %}
+  {% if error %}<div class="flash error">Not saved: {{ error }}</div>{% endif %}
+  <div class="form-grid">
+    <label>Auto-approve payouts up to (USD)<input name="auto_approve_limit" inputmode="decimal" value="{{ policy.auto_approve_limit }}" required></label>
+    <label>Daily payout cap<input name="daily_cap" inputmode="decimal" value="{{ policy.daily_cap }}" required></label>
+    <label>Monthly payout cap<input name="monthly_cap" inputmode="decimal" value="{{ policy.monthly_cap }}" required></label>
+    <label>Largest invoice the assistant may create<input name="invoice_cap" inputmode="decimal" value="{{ policy.invoice_cap }}" required></label>
+    <label>Allowed currencies (comma-separated)<input name="allowed_currencies" value="{{ policy.allowed_currencies | join(',') if policy.allowed_currencies is not string else policy.allowed_currencies }}" required></label>
+    <label>Reminders may go out on their own up to
+      <select name="auto_remind_max_tone">
+        {% for t in TONES %}<option value="{{ t }}" {% if t == policy.auto_remind_max_tone %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  <label class="check"><input type="checkbox" name="auto_remind" value="true" {% if policy.auto_remind %}checked{% endif %}> Send due reminders automatically (otherwise every reminder waits for approval)</label>
+  <div><button class="primary" type="submit">Save rules</button></div>
+</form>

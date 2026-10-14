@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Approvals</h1>
+<p class="muted">Actions your rules held back. The assistant can't approve anything; only you can, here. Approving re-checks the hard caps, and each approval works once.</p>
+<div class="stack">
+  {% for a in approvals %}
+    {% include "partials/approval_card.html" %}
+  {% else %}
+    <div class="card muted">Nothing is waiting for you.</div>
+  {% endfor %}
+</div>
+{% endblock %}

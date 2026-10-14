@@ -1,0 +1,9 @@
+<div class="stack" id="approval-{{ approval_id }}">
+  {% if error %}
+    <div class="flash error">{{ error }} <a href="/approvals">Reload approvals</a></div>
+  {% else %}
+    {% set o = outcome %}
+    {% include "partials/outcome.html" %}
+  {% endif %}
+</div>
+<span id="approval-count" class="count" data-n="{{ pending_count }}" hx-swap-oob="true">{{ pending_count or "" }}</span>

@@ -1,0 +1,27 @@
+<tbody id="inv-{{ inv.id }}">
+  <tr>
+    <td data-label="Client">{{ inv.client }}<br><small>{{ inv.client_email }}</small></td>
+    <td data-label="Invoice">{% if inv.number %}#{{ inv.number }}{% else %}<small class="muted">{{ "draft" if inv.status == "DRAFT" else "no number" }}</small>{% endif %}
+      {% if inv.pay_url %}<br><small><a href="{{ inv.pay_url }}" target="_blank" rel="noopener">view</a></small>{% endif %}</td>
+    <td class="num" data-label="Amount">{{ inv.amount | money(inv.currency) }}</td>
+    <td data-label="Status"><span class="pill {{ inv.status | style }}">{{ inv.status | lower }}</span>{% if inv.days_overdue %} <span class="pill danger">{{ inv.days_overdue }}d late</span>{% endif %}</td>
+    <td data-label="Due">{{ inv.due_date }}</td>
+    <td data-label="Late-payment risk">{% if inv.risk_score is not none %}<span class="pill {{ inv.risk_score | risk_level }}">{{ (inv.risk_score * 100) | round | int }}%</span>
+      {% if inv.risk_reasons %}<br><small>{{ inv.risk_reasons | join("; ") }}</small>{% endif %}{% else %}<small class="muted">n/a</small>{% endif %}</td>
+    <td data-label="Reminders">{{ inv.reminders_sent }}</td>
+    <td>
+      <div class="row">
+        {% if inv.paypal_invoice_id %}<button class="small" hx-post="/ui/invoices/{{ inv.id }}/refresh" hx-target="#inv-{{ inv.id }}" hx-swap="outerHTML">Refresh</button>{% endif %}
+        {% if inv.status == "SENT" %}<button class="small" hx-post="/ui/invoices/{{ inv.id }}/remind" hx-target="#inv-{{ inv.id }}" hx-swap="outerHTML">Remind</button>{% endif %}
+      </div>
+    </td>
+  </tr>
+  {% if note %}
+  <tr class="note"><td colspan="8">
+    <div class="flash {{ 'error' if note.status in ('blocked', 'failed', 'paypal_error') else 'info' }}">
+      {{ note.message }}{% if note.reasons %} ({{ note.reasons | join("; ") }}){% endif %}
+      {% if note.status in ("needs_approval", "escalated") %} <a href="/approvals">Review it</a>{% endif %}
+    </div>
+  </td></tr>
+  {% endif %}
+</tbody>

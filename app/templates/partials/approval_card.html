@@ -1,0 +1,40 @@
+{% set p = a.payload %}
+{% set escalated = a.level == "escalated" %}
+<article class="card approval {{ 'escalated' if escalated }}" id="approval-{{ a.id }}">
+  <div class="row spread">
+    <h2 style="margin: 0">{% if escalated %}Unusual: {% endif %}{{ KIND_LABELS.get(a.kind, a.kind) }}</h2>
+    <span class="pill {{ 'danger' if escalated else 'warn' }}">{{ "needs a careful look" if escalated else "needs approval" }}</span>
+  </div>
+  <dl>
+    {% if a.kind == "send_payout" %}
+      <dt>Pay</dt><dd><strong>{{ p.amount | money(p.currency) }}</strong></dd>
+      <dt>To</dt><dd>{{ p.recipient_name }} &lt;{{ p.recipient_email }}&gt;</dd>
+      {% if p.note %}<dt>Note</dt><dd>{{ p.note }}</dd>{% endif %}
+    {% elif a.kind == "send_reminder" %}
+      <dt>Invoice</dt><dd>{{ "#" ~ p.invoice_number if p.invoice_number else p.paypal_invoice_id }}</dd>
+      <dt>Tone</dt><dd>{{ p.tone }} ({{ p.days_overdue }} days overdue)</dd>
+      <dt>Subject</dt><dd>{{ p.subject }}</dd>
+      <dt>Message</dt><dd style="white-space: pre-wrap">{{ p.note }}</dd>
+    {% elif a.kind == "update_policy" %}
+      <dt>Change</dt><dd>{{ p.field | label }} to <strong>{{ p.new_value }}</strong></dd>
+    {% endif %}
+    <dt>Asked</dt><dd>{{ a.created_at | when }} via {{ a.source }}</dd>
+  </dl>
+  {% if a.reasons %}<div><small class="muted">Why it was held:</small><ul>{% for r in a.reasons %}<li>{{ r }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if a.signals and a.signals.anomaly_flag %}
+    <div class="signal"><strong>Anomaly detector:</strong> {{ a.signals.anomaly_reason }}
+      <small class="muted">(score {{ "%.2f" | format(a.signals.anomaly_score or 0) }}; trained on synthetic data, advisory only)</small></div>
+  {% endif %}
+  <form class="stack" style="margin-top: 0.75rem" hx-target="#approval-{{ a.id }}" hx-swap="outerHTML">
+    {% if escalated %}
+      <label class="check"><input type="checkbox" name="acknowledge_anomaly" value="true"> I've checked this payout and it's legitimate.</label>
+    {% endif %}
+    {% if a.needs_allowlist %}
+      <label class="check"><input type="checkbox" name="allowlist_recipient" value="true"> Also add {{ p.recipient_email }} to my allowlist.</label>
+    {% endif %}
+    <div class="row">
+      <button class="primary" type="submit" hx-post="/ui/approvals/{{ a.id }}/approve" {% if escalated %}data-needs-ack disabled{% endif %}>Approve</button>
+      <button class="danger" type="button" hx-post="/ui/approvals/{{ a.id }}/reject" hx-include="closest form">Reject</button>
+    </div>
+  </form>
+</article>

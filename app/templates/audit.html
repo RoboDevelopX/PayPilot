@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Audit log</h1>
+<p class="muted">Every proposal, rule decision, approval and PayPal call, in order. The log is append-only: the database refuses edits and deletes.
+{% if action_id %}<br>Showing one action. <a href="/audit">Show everything</a>{% endif %}</p>
+<section class="card">
+  <div class="table-wrap"><table class="cards">
+    <thead><tr><th>When</th><th>Who</th><th>Event</th><th>Details</th></tr></thead>
+    {% include "partials/audit_rows.html" %}
+  </table></div>
+</section>
+{% endblock %}

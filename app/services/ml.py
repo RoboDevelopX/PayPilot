@@ -32,7 +32,7 @@ log = logging.getLogger("paypilot.ml")
 
 ADVICE_MIN_RISK = 0.5  # suggest shorter terms from this late-payment risk upward
 ADVICE_TERMS = 7
-ADVICE_MIN_GAIN = 0.05  # only suggest net-7 if it lowers the estimate by 5 points
+ADVICE_MIN_GAIN = 0.03  # only suggest net-7 if it lowers the estimate by 3 points
 
 
 def _load(loader, path: Path, what: str):
@@ -136,7 +136,7 @@ class MLScorers:
             "risk": round(p, 2),
             "usual_terms": usual_terms,
             "reasons": reasons,
-            "text": f"{client.name} has a {p:.0%} risk of paying late.",
+            "text": f"{client.name} is likely to pay late ({p:.0%} risk).",
         }
         if usual_terms > ADVICE_TERMS:
             p7, _ = self.client_risk(s, client_id, amount=amount, terms_days=ADVICE_TERMS, at=now)
@@ -144,8 +144,8 @@ class MLScorers:
                 advice["suggested_terms"] = ADVICE_TERMS
                 advice["risk_with_suggestion"] = round(p7, 2)
                 advice["text"] = (
-                    f"{client.name} has a {p:.0%} risk of paying late; consider net-{ADVICE_TERMS} "
-                    f"terms (estimated {p7:.0%})."
+                    f"{client.name} is likely to pay late ({p:.0%} risk); consider "
+                    f"net-{ADVICE_TERMS} terms (estimated {p7:.0%})."
                 )
         return advice
 

@@ -11,19 +11,21 @@ import asyncio
 import logging
 from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 from typing import Any
 
 import httpx
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, get_settings
 from app.container import build_container
 from app.db import init_db, make_engine, make_session_factory
-from app.routers import approvals, chat, invoices
+from app.routers import approvals, chat, invoices, ui
 
 log = logging.getLogger("paypilot")
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 def create_app(
@@ -66,6 +68,8 @@ def create_app(
     app.include_router(chat.router)
     app.include_router(invoices.router)
     app.include_router(approvals.router)
+    app.include_router(ui.router)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/healthz")
     def healthz() -> dict[str, object]:
@@ -80,9 +84,5 @@ def create_app(
             "ml": app.state.container.ml.status,
             "demo_mode": settings.demo_mode,
         }
-
-    @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        return "<h1>PayPilot (sandbox)</h1><p>UI arrives in M7. See /docs for the API.</p>"
 
     return app
