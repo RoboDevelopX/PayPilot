@@ -1,0 +1,16 @@
+<section class="card" id="invoice-table">
+  {% if swept is defined %}
+    <div class="flash info" style="margin-bottom: 0.75rem">
+      Follow-ups ran: {% if swept %}{{ swept | length }} reminder action{{ "s" if swept | length != 1 }}
+      ({% for o in swept %}{{ o.status | label }}{% if not loop.last %}, {% endif %}{% endfor %}).{% else %}nothing was due.{% endif %}
+    </div>
+  {% endif %}
+  {% if invoices %}
+  <div class="table-wrap"><table class="cards">
+    <thead><tr><th>Client</th><th>Invoice</th><th class="num">Amount</th><th>Status</th><th>Due</th><th>Late-payment risk</th><th>Reminders</th><th></th></tr></thead>
+    {% for inv in invoices %}{% include "partials/invoice_row.html" %}{% endfor %}
+  </table></div>
+  {% else %}
+    <p class="muted">No invoices yet. Try "Invoice Acme Corp $450 for logo design" in <a href="/chat">Chat</a>.</p>
+  {% endif %}
+</section>

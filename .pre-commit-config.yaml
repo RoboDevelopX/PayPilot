@@ -1,0 +1,19 @@
+# Install once with `make setup` (runs `pre-commit install`).
+repos:
+  - repo: local
+    hooks:
+      - id: no-secrets
+        name: secret check (no keys in the repo)
+        entry: python scripts/check_secrets.py
+        language: system
+        pass_filenames: true
+      - id: ruff
+        name: ruff
+        entry: ruff check --fix
+        language: system
+        types: [python]
+      - id: black
+        name: black
+        entry: black
+        language: system
+        types: [python]

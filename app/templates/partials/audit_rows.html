@@ -1,0 +1,21 @@
+<tbody>
+{% for e in events %}
+  <tr>
+    <td data-label="When">{{ e.ts | when }}</td>
+    <td data-label="Who"><span class="pill muted">{{ e.actor }}</span></td>
+    <td data-label="Event">{{ e.event | label }}{% if e.action_id and not action_id %}<br><small><a href="/audit?action_id={{ e.action_id }}">this action</a></small>{% endif %}</td>
+    <td>
+      {% if e.paypal_request_id %}<small>PayPal-Request-Id <code>{{ e.paypal_request_id }}</code></small><br>{% endif %}
+      {% if e.paypal_debug_id %}<small>PayPal debug id <code>{{ e.paypal_debug_id }}</code></small><br>{% endif %}
+      {% if e.detail %}<details><summary>details</summary><pre>{{ e.detail | pretty }}</pre></details>{% endif %}
+    </td>
+  </tr>
+{% else %}
+  {% if not before %}<tr><td colspan="4" class="muted">Nothing logged yet.</td></tr>{% endif %}
+{% endfor %}
+{% if events | length >= 50 %}
+  <tr id="more"><td colspan="4">
+    <button class="small" hx-get="/ui/audit?before_id={{ events[-1].id }}{% if action_id %}&action_id={{ action_id | urlencode }}{% endif %}" hx-target="closest tbody" hx-swap="afterend" hx-on::after-request="this.closest('tr').remove()">Load older entries</button>
+  </td></tr>
+{% endif %}
+</tbody>

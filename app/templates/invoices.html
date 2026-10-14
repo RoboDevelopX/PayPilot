@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row spread">
+  <h1>Invoices</h1>
+  <button hx-post="/ui/followups" hx-target="#invoice-table" hx-swap="outerHTML" title="Check PayPal for payments and send any reminders that are due">Run follow-ups now</button>
+</div>
+<p class="muted">Create invoices from <a href="/chat">Chat</a>. Follow-ups also run on a timer: PayPal is polled for payments, and overdue invoices get reminders in a friendly, firm or final tone.</p>
+{% include "partials/invoice_table.html" %}
+{% endblock %}
