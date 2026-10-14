@@ -20,6 +20,7 @@ from app.services.actions import ActionService
 from app.services.approvals import ApprovalService
 from app.services.conversations import ConversationStore
 from app.services.followups import LLMDrafter, TemplateDrafter
+from app.services.ml import MLScorers
 from app.services.ratelimit import RateLimiter
 
 
@@ -33,6 +34,7 @@ class Container:
     agent: Agent | None
     conversations: ConversationStore
     chat_limiter: RateLimiter
+    ml: MLScorers
 
 
 def make_llm(settings: Settings) -> Callable[..., Any] | None:
@@ -66,10 +68,13 @@ def build_container(
         llm_create = make_llm(settings)
     model = settings.llm_model or settings.anthropic_model
     drafter = LLMDrafter(llm_create, model=model) if llm_create else TemplateDrafter()
+    ml = MLScorers.load() if settings.ml_enabled else MLScorers()
     actions = ActionService(
         sessions,
         invoicing=invoicing,
         payouts=payouts,
+        risk_scorer=ml.score_invoice if ml.risk else None,
+        anomaly_scorer=ml.score_payout if ml.anomaly else None,
         drafter=drafter,
         business_name=settings.business_name,
     )
@@ -92,4 +97,5 @@ def build_container(
         agent=agent,
         conversations=ConversationStore(),
         chat_limiter=RateLimiter(settings.chat_rate_limit_per_minute),
+        ml=ml,
     )

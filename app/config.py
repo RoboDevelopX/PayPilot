@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     followups_enabled: bool = True  # background job: poll open invoices, send due reminders
     followup_interval_seconds: int = Field(default=300, ge=10)
     http_timeout_seconds: float = 20.0
+    ml_enabled: bool = True  # load ml/artifacts/*.joblib (advisory signals only)
 
     @field_validator("paypal_base_url")
     @classmethod

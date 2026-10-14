@@ -77,6 +77,7 @@ def create_app(
                 if settings.active_llm
                 else "not configured"
             ),
+            "ml": app.state.container.ml.status,
             "demo_mode": settings.demo_mode,
         }
 
