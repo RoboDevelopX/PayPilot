@@ -33,14 +33,17 @@ from app.policy.engine import (
     evaluate_invoice,
     evaluate_payout,
     evaluate_policy_change,
+    evaluate_reminder,
 )
 from app.schemas import (
     CreateInvoice,
     GetStatus,
     SendPayout,
+    SendReminder,
     UpdatePolicy,
 )
 from app.services import audit
+from app.services.followups import ReminderDrafter, TemplateDrafter, reminder_due, tone_for
 from app.services.store import (
     days_overdue,
     find_invoices,
@@ -105,6 +108,8 @@ class ActionService:
         payouts: Any = None,  # app.paypal.payouts.PayoutsAPI (M5)
         risk_scorer: RiskScorer | None = None,
         anomaly_scorer: AnomalyScorer | None = None,
+        drafter: ReminderDrafter | None = None,
+        business_name: str = "",
         clock: Callable[[], dt.datetime] = utcnow,
     ) -> None:
         self.sessions = sessions
@@ -112,6 +117,8 @@ class ActionService:
         self.payouts = payouts
         self.risk_scorer = risk_scorer
         self.anomaly_scorer = anomaly_scorer
+        self.drafter = drafter or TemplateDrafter()
+        self.business_name = business_name
         self.clock = clock
 
     # ------------------------------------------------------------- dispatch
@@ -119,6 +126,7 @@ class ActionService:
         handlers = {
             "create_invoice": self.propose_invoice,
             "send_payout": self.propose_payout,
+            "send_reminder": self.propose_reminder,
             "get_status": self.get_status,
             "update_policy": self.propose_policy_change,
         }
@@ -127,10 +135,12 @@ class ActionService:
             return Outcome("failed", f"{action.kind} is not available yet")
         return handler(action, source=source)
 
-    def _new_action(self, s: Session, action: Any, source: str, decision) -> Action:
+    def _new_action(
+        self, s: Session, action: Any, source: str, decision, payload: dict | None = None
+    ) -> Action:
         act = Action(
             kind=action.kind,
-            payload=action.model_dump(mode="json"),
+            payload=payload if payload is not None else action.model_dump(mode="json"),
             source=source,
             decision=decision.outcome,
             reasons=list(decision.reasons),
@@ -143,7 +153,7 @@ class ActionService:
             actor="agent" if source == "chat" else source,
             event="action_proposed",
             action_id=act.id,
-            kind=action.kind,
+            kind=act.kind,
             payload=act.payload,
         )
         audit.record(
@@ -275,6 +285,192 @@ class ActionService:
                 action_id,
                 data=data,
             )
+
+    # ------------------------------------------------- status and reminders
+    def refresh_invoice(self, invoice_id: str, *, actor: str = "system") -> str:
+        """Poll PayPal for an invoice's status (the fallback when a webhook is missed)."""
+        with session_scope(self.sessions) as s:
+            inv = s.get(Invoice, invoice_id)
+            if inv is None or not inv.paypal_invoice_id or self.invoicing is None:
+                return inv.status if inv else "UNKNOWN"
+            paypal_id = inv.paypal_invoice_id
+        try:
+            info = self.invoicing.get(paypal_id)
+        except PayPalError as e:
+            log.warning("could not refresh %s: %s", paypal_id, e)
+            with session_scope(self.sessions) as s:
+                return s.get(Invoice, invoice_id).status
+        return self.apply_invoice_status(paypal_id, info.status, actor=actor, source="poll")
+
+    def apply_invoice_status(
+        self, paypal_invoice_id: str, paypal_status: str, *, actor: str, source: str
+    ) -> str:
+        """Record a PayPal status for an invoice (from polling or a verified webhook)."""
+        new = local_status(paypal_status)
+        with session_scope(self.sessions) as s:
+            inv = s.query(Invoice).filter_by(paypal_invoice_id=paypal_invoice_id).one_or_none()
+            if inv is None:
+                return "UNKNOWN"
+            if inv.status != new:
+                old = inv.status
+                inv.status = new
+                if new == "PAID" and inv.paid_at is None:
+                    inv.paid_at = self.clock()
+                audit.record(
+                    s,
+                    actor=actor,
+                    event="invoice_status_changed",
+                    action_id=inv.action_id,
+                    paypal_invoice_id=paypal_invoice_id,
+                    old=old,
+                    new=new,
+                    paypal_status=paypal_status,
+                    source=source,
+                )
+            return inv.status
+
+    def propose_reminder(self, a: SendReminder, *, source: str = "chat") -> Outcome:
+        with session_scope(self.sessions) as s:
+            matches = [i for i in find_invoices(s, a.invoice_ref, limit=10) if i.status == "SENT"]
+            options = [
+                {"invoice_number": i.number, "client": i.client.name, "amount": f"{i.amount:.2f}"}
+                for i in matches
+            ]
+            ids = [i.id for i in matches]
+        if not ids:
+            return Outcome("info", f"No open (unpaid) invoice matches {a.invoice_ref!r}.")
+        if len(ids) > 1:
+            return Outcome(
+                "info",
+                "Several open invoices match; ask the user which one.",
+                data={"matches": options},
+            )
+        return self.remind_invoice(ids[0], source=source)
+
+    def remind_invoice(self, invoice_id: str, *, source: str = "chat") -> Outcome:
+        self.refresh_invoice(invoice_id)  # never chase an invoice that was just paid
+        with session_scope(self.sessions) as s:
+            inv = s.get(Invoice, invoice_id)
+            today = self.clock().date()
+            d = days_overdue(inv, today)
+            tone = tone_for(d, inv.risk_score, inv.reminders_sent)
+            decision = evaluate_reminder(
+                tone=tone, invoice_open=inv.status == "SENT", policy=load_policy(s)
+            )
+            payload: dict[str, Any] = {
+                "invoice_id": inv.id,
+                "paypal_invoice_id": inv.paypal_invoice_id,
+                "invoice_number": inv.number,
+                "tone": tone,
+                "days_overdue": d,
+                "risk": inv.risk_score,
+            }
+            if decision.level != Level.BLOCK:
+                ctx = {
+                    "client": inv.client.name,
+                    "number": f"#{inv.number}" if inv.number else "",
+                    "amount": fmt(inv.amount, inv.currency),
+                    "due_date": inv.due_date.isoformat(),
+                    "days": d,
+                    "business": self.business_name,
+                }
+                payload["subject"], payload["note"] = self.drafter.draft(ctx, tone)
+            act = self._new_action(s, SendReminder(invoice_ref=inv.id), source, decision, payload)
+            if decision.level == Level.BLOCK:
+                act.status = "blocked"
+                return Outcome("blocked", decision.level.label, act.id, list(decision.reasons))
+            if decision.level != Level.AUTO:
+                act.status = "held"
+                s.add(Approval(action_id=act.id, level="standard"))
+                return Outcome(
+                    decision.outcome,
+                    f"A {tone} reminder is drafted and waiting in the Approvals inbox.",
+                    act.id,
+                    list(decision.reasons),
+                    data={"subject": payload["subject"], "note": payload["note"]},
+                )
+            act.status = "approved"
+            action_id = act.id
+        return self.execute_reminder(action_id)
+
+    def execute_reminder(self, action_id: str) -> Outcome:
+        with session_scope(self.sessions) as s:
+            act = s.get(Action, action_id)
+            p = act.payload
+            inv = s.get(Invoice, p["invoice_id"])
+            if self.invoicing is None:
+                act.status = "failed"
+                return Outcome("failed", "PayPal is not configured", action_id)
+            rid = request_id(action_id, "invoice.remind")
+            try:
+                debug_id = self.invoicing.remind(
+                    inv.paypal_invoice_id, subject=p["subject"], note=p["note"], request_id=rid
+                )
+            except PayPalError as e:
+                act.status = "failed"
+                act.result = {"error": str(e)}
+                audit.record(
+                    s,
+                    actor="paypal",
+                    event="paypal_error",
+                    action_id=action_id,
+                    paypal_debug_id=e.debug_id,
+                    error=str(e),
+                    kind=type(e).__name__,
+                )
+                return Outcome("paypal_error", e.user_message(), action_id)
+            inv.reminders_sent += 1
+            inv.last_reminder_at = self.clock()
+            act.status = "executed"
+            audit.record(
+                s,
+                actor="paypal",
+                event="reminder_sent",
+                action_id=action_id,
+                paypal_request_id=rid,
+                paypal_debug_id=debug_id,
+                paypal_invoice_id=inv.paypal_invoice_id,
+                tone=p["tone"],
+            )
+            return Outcome(
+                "executed",
+                f"{p['tone'].capitalize()} reminder sent for invoice #{inv.number}",
+                action_id,
+                data={"subject": p["subject"], "tone": p["tone"]},
+            )
+
+    def sweep_followups(self) -> list[Outcome]:
+        """Scheduler job: refresh open invoices, then remind the overdue ones that are due."""
+        with session_scope(self.sessions) as s:
+            open_ids = [
+                i.id
+                for i in s.query(Invoice).filter(
+                    Invoice.status == "SENT", Invoice.is_seeded.is_(False)
+                )
+            ]
+            pending = {
+                a.payload.get("invoice_id")
+                for a in s.query(Action).filter(
+                    Action.kind == "send_reminder", Action.status == "held"
+                )
+            }
+        outcomes = []
+        now = self.clock()
+        for invoice_id in open_ids:
+            if self.refresh_invoice(invoice_id) != "SENT" or invoice_id in pending:
+                continue
+            with session_scope(self.sessions) as s:
+                inv = s.get(Invoice, invoice_id)
+                due = reminder_due(
+                    days_overdue=days_overdue(inv, now.date()),
+                    risk=inv.risk_score,
+                    reminders_sent=inv.reminders_sent,
+                    last_reminder_at=inv.last_reminder_at,
+                    now=now,
+                )
+            if due:
+                outcomes.append(self.remind_invoice(invoice_id, source="scheduler"))
+        return outcomes
 
     # --------------------------------------------------------------- payouts
     def propose_payout(self, a: SendPayout, *, source: str = "chat") -> Outcome:
