@@ -235,7 +235,7 @@ Short notes on the parts that are easy to get wrong. Longer versions sit at the 
 
 - Sandbox only, single user, single process. SQLite is fine for a demo; a real deployment would want Postgres and a proper job queue.
 - The ML models are trained on synthetic data. Their metrics show the pipeline is sound and honestly evaluated, not that they predict real customers. The risk model only slightly beats "this client's past late rate" (ROC-AUC 0.756 vs 0.748), and the anomaly detector catches 2 of 6 burst anomalies in the test window.
-- The demo recordings were written from PayPal's documented response shapes, not captured; `make smoke ARGS=--record` replaces them with real captures.
+- In the demo recordings, `invoice.json` and `payout_get.json` are real sandbox captures; `payout_create.json` was written from the Payouts docs. `make smoke ARGS=--record` re-captures them from your own sandbox.
 - Reminders use PayPal's remind endpoint, so the email itself comes from PayPal.
 
 ## License
