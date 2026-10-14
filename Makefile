@@ -14,7 +14,7 @@ setup:  ## create the venv, install deps, install the git pre-commit hook
 	@echo "Now fill in .env, then: make run"
 
 run:  ## start the app on http://localhost:8000
-	$(BIN)/uvicorn app.main:app --reload --port 8000
+	$(BIN)/uvicorn app.main:create_app --factory --reload --port 8000
 
 test:  ## unit + integration tests (live tests skip unless keys are set)
 	$(BIN)/pytest

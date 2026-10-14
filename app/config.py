@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: SecretStr = SecretStr("")
     anthropic_model: str = "claude-opus-5-5"
+    anthropic_effort: str = "medium"  # low/medium/high: thinking depth vs. latency and cost
 
     # App
     database_url: str = "sqlite:///./paypilot.db"

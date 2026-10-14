@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 import respx
+from pydantic import SecretStr
 
 from app.config import SANDBOX_BASE_URL, Settings
 from app.paypal.client import PayPalClient
@@ -35,3 +36,27 @@ def paypal_mock():
 @pytest.fixture
 def pp_client() -> PayPalClient:
     return PayPalClient("test-client", "test-secret", sleep=lambda _s: None)
+
+
+@pytest.fixture
+def sandbox():
+    from tests.fakes import FakeSandbox
+
+    return FakeSandbox()
+
+
+@pytest.fixture
+def make_app(settings, sandbox):
+    """Build an isolated app: in-memory DB, fake PayPal sandbox, scripted Claude."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    def _make(llm=None, **overrides):
+        s = settings.model_copy(update=overrides) if overrides else settings
+        if llm is not None:
+            s = s.model_copy(update={"anthropic_api_key": SecretStr("test-key")})
+        app = create_app(s, paypal_transport=sandbox.transport, llm_create=llm)
+        return TestClient(app), app
+
+    return _make
