@@ -175,7 +175,10 @@ def main() -> int:
                 raise RuntimeError("no AI key set (GEMINI_API_KEY or ANTHROPIC_API_KEY)")
             agent = Agent(
                 llm,
-                handle_action=lambda a: Outcome("info", "smoke test: nothing executed"),
+                # A realistic final state, so the model stops instead of retrying the action.
+                handle_action=lambda a: Outcome(
+                    "needs_approval", "Held for approval (smoke test: nothing executed)"
+                ),
                 model=settings.llm_model,
             )
             reply = agent.respond([], "Invoice Acme Corp (ap@acme.example) $450 for a logo")
