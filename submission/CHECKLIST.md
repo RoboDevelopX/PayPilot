@@ -10,7 +10,6 @@
 - ☐ **Webhook:** create it in the sandbox app, set `PAYPAL_WEBHOOK_ID` on Render, pay a sandbox invoice as the Personal account, and check that PayPilot marks it paid.
 - ☐ **Record the video** with [DEMO_SCRIPT.md](DEMO_SCRIPT.md): no music you don't own, no unneeded third-party brands.
 - ☐ **Write the `[TODO: personal story]` parts** in [DEVPOST.md](DEVPOST.md) and the video opener, and add the video and app links.
-- ☐ **Make sure the GitHub repo is public.**
 - ☐ **Check the hackathon's rule on AI tools.** The README lists the AI used inside the product. It doesn't list AI coding assistants, matching your earlier edit to the docs; check whether the rules ask you to disclose them.
 
 ## Product
@@ -51,7 +50,7 @@
 
 | Requirement | Status | Where |
 |---|---|---|
-| Public repo | ☐ | confirm on GitHub |
+| Public repo | ✓ | github.com/RoboDevelopX/PayPilot is public |
 | MIT LICENSE | ✓ | `LICENSE` |
 | All source and run instructions included | ✓ | `README.md`, `Makefile` |
 | Clean incremental commits | ✓ | one commit per milestone (M1 to M9) on `paypilot-v2` |
