@@ -268,3 +268,35 @@ def test_policy_api_validates(make_app):
     r = client.put("/api/policy", json={"daily_cap": "-1"})
     assert r.status_code == 422
     assert json.loads(r.text)["detail"]
+
+
+def test_payout_retry_with_same_batch_id_returns_the_original_batch(sandbox):
+    # Real Payouts ignores PayPal-Request-Id and answers a repeated sender_batch_id with a
+    # 400 that links to the first batch. A retry must report that batch, never pay again.
+    api = PayoutsAPI(PayPalClient("id", "secret", transport=sandbox.transport))
+    kwargs = dict(
+        receiver_email="sam@example.com",
+        amount=Decimal("1.00"),
+        currency="USD",
+        note="retry",
+        sender_batch_id="act-1",
+        request_id="act-1:payout.create",
+    )
+    first = api.create(**kwargs)
+    again = api.create(**kwargs)
+    assert again.batch_id == first.batch_id
+    assert len(sandbox.payouts) == 1
+
+
+def test_duplicate_batch_error_is_recognised_with_or_without_link():
+    from app.paypal.errors import PayPalValidationError
+    from app.paypal.payouts import _existing_batch_id
+
+    dup = PayPalValidationError(
+        "x",
+        details=[
+            {"field": "SENDER_BATCH_ID", "issue": "Batch with given sender_batch_id already exists"}
+        ],
+    )
+    assert _existing_batch_id(dup) == ""
+    assert _existing_batch_id(PayPalValidationError("x", details=[{"field": "amount"}])) is None
