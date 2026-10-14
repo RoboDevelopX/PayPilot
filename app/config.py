@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     # Google Gemini (free tier key from aistudio.google.com)
     gemini_api_key: SecretStr = SecretStr("")
     gemini_model: str = "gemini-3.8-flash"
+    gemini_fallback_model: str = "gemini-3.5-flash-lite"  # used when the main model is overloaded
 
     # App
     database_url: str = "sqlite:///./paypilot.db"

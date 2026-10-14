@@ -27,6 +27,7 @@ import httpx
 from app.agent.llm import LLMUnavailable
 
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+OVERLOADED = {500, 502, 503, 504}
 REFUSAL_REASONS = {"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION"}
 
 
@@ -57,10 +58,12 @@ class GeminiCreate:
         api_key: str,
         *,
         model: str,
+        fallback_model: str = "",
         timeout: float = 60.0,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.model = model
+        self.fallback_model = fallback_model
         self._http = httpx.Client(
             base_url=GEMINI_BASE,
             timeout=timeout,
@@ -95,12 +98,10 @@ class GeminiCreate:
             gen["responseSchema"] = _strip_schema(fmt["schema"])
         body["generationConfig"] = gen
 
-        try:
-            r = self._http.post(f"/models/{self.model}:generateContent", json=body)
-        except httpx.HTTPError as e:
-            raise LLMUnavailable(
-                "The AI service is unavailable right now. Try again shortly."
-            ) from e
+        r = self._post(self.model, body)
+        if r.status_code in OVERLOADED and self.fallback_model:
+            # Free-tier models often answer 503 "high demand"; a lighter model usually has room.
+            r = self._post(self.fallback_model, body)
         if r.status_code == 429:
             raise LLMUnavailable(
                 "The free AI quota is used up for the moment. Try again in a minute."
@@ -110,6 +111,14 @@ class GeminiCreate:
         if r.status_code >= 400:
             raise LLMUnavailable(f"The AI service returned an error ({r.status_code}).")
         return self._response(r.json())
+
+    def _post(self, model: str, body: dict[str, Any]) -> httpx.Response:
+        try:
+            return self._http.post(f"/models/{model}:generateContent", json=body)
+        except httpx.HTTPError as e:
+            raise LLMUnavailable(
+                "The AI service is unavailable right now. Try again shortly."
+            ) from e
 
     def _contents(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         contents: list[dict[str, Any]] = []
