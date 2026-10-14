@@ -1,0 +1,433 @@
+"""Where proposals meet the rules: validate -> policy -> record -> execute or hold.
+
+This is the only layer that calls PayPal, and only after the policy engine
+returned AUTO (or the user approved). Every step lands in the audit log.
+
+Why this works (idempotency in practice): the Action row is committed *before*
+PayPal is called, and its id deterministically derives the PayPal-Request-Id
+for each step. If the process crashes or the network drops mid-call, re-running
+the same action sends the same request ids, so PayPal returns the original
+invoice instead of creating a second one.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import logging
+import uuid
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from decimal import Decimal
+from typing import Any
+
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.db import session_scope
+from app.models import Action, Approval, Invoice, Payout, utcnow
+from app.money import fmt
+from app.paypal.errors import PayPalError
+from app.paypal.invoices import InvoiceDraft, InvoicingAPI, LineItem
+from app.policy.engine import (
+    Level,
+    MLSignals,
+    evaluate_invoice,
+    evaluate_payout,
+    evaluate_policy_change,
+)
+from app.schemas import (
+    CreateInvoice,
+    GetStatus,
+    SendPayout,
+    UpdatePolicy,
+)
+from app.services import audit
+from app.services.store import (
+    days_overdue,
+    find_invoices,
+    find_payouts,
+    get_or_create_client,
+    get_or_create_recipient,
+    load_policy,
+    spend,
+)
+
+log = logging.getLogger("paypilot.actions")
+
+PAYPAL_STATUS_TO_LOCAL = {
+    "DRAFT": "DRAFT",
+    "PAID": "PAID",
+    "MARKED_AS_PAID": "PAID",
+    "CANCELLED": "CANCELLED",
+    "REFUNDED": "CANCELLED",
+    "MARKED_AS_REFUNDED": "CANCELLED",
+}
+
+# (session, invoice) -> (risk probability, reasons). Supplied by the ML layer.
+RiskScorer = Callable[[Session, Invoice], tuple[float, list[str]]]
+# (session, payout fields) -> MLSignals. Supplied by the ML layer.
+AnomalyScorer = Callable[[Session, dict[str, Any]], MLSignals]
+
+
+def local_status(paypal_status: str) -> str:
+    return PAYPAL_STATUS_TO_LOCAL.get(paypal_status, "SENT")
+
+
+def request_id(action_id: str, step: str) -> str:
+    """Deterministic PayPal-Request-Id per (action, step); a UUID fits PayPal's 38-char limit."""
+    return str(uuid.uuid5(uuid.UUID(action_id), step))
+
+
+@dataclass
+class Outcome:
+    status: str  # executed/needs_approval/escalated/blocked/invalid/paypal_error/info/failed
+    message: str
+    action_id: str | None = None
+    reasons: list[str] = field(default_factory=list)
+    data: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"status": self.status, "message": self.message}
+        if self.action_id:
+            d["action_id"] = self.action_id
+        if self.reasons:
+            d["reasons"] = self.reasons
+        if self.data:
+            d["data"] = self.data
+        return d
+
+
+class ActionService:
+    def __init__(
+        self,
+        sessions: sessionmaker[Session],
+        *,
+        invoicing: InvoicingAPI | None = None,
+        payouts: Any = None,  # app.paypal.payouts.PayoutsAPI (M5)
+        risk_scorer: RiskScorer | None = None,
+        anomaly_scorer: AnomalyScorer | None = None,
+        clock: Callable[[], dt.datetime] = utcnow,
+    ) -> None:
+        self.sessions = sessions
+        self.invoicing = invoicing
+        self.payouts = payouts
+        self.risk_scorer = risk_scorer
+        self.anomaly_scorer = anomaly_scorer
+        self.clock = clock
+
+    # ------------------------------------------------------------- dispatch
+    def handle(self, action: Any, *, source: str = "chat") -> Outcome:
+        handlers = {
+            "create_invoice": self.propose_invoice,
+            "send_payout": self.propose_payout,
+            "get_status": self.get_status,
+            "update_policy": self.propose_policy_change,
+        }
+        handler = handlers.get(action.kind)
+        if handler is None:
+            return Outcome("failed", f"{action.kind} is not available yet")
+        return handler(action, source=source)
+
+    def _new_action(self, s: Session, action: Any, source: str, decision) -> Action:
+        act = Action(
+            kind=action.kind,
+            payload=action.model_dump(mode="json"),
+            source=source,
+            decision=decision.outcome,
+            reasons=list(decision.reasons),
+            status="proposed",
+        )
+        s.add(act)
+        s.flush()
+        audit.record(
+            s,
+            actor="agent" if source == "chat" else source,
+            event="action_proposed",
+            action_id=act.id,
+            kind=action.kind,
+            payload=act.payload,
+        )
+        audit.record(
+            s, actor="policy", event="policy_decision", action_id=act.id, **decision.to_dict()
+        )
+        return act
+
+    # -------------------------------------------------------------- invoices
+    def propose_invoice(self, a: CreateInvoice, *, source: str = "chat") -> Outcome:
+        total = a.total
+        with session_scope(self.sessions) as s:
+            decision = evaluate_invoice(total=total, currency=a.currency, policy=load_policy(s))
+            act = self._new_action(s, a, source, decision)
+            if decision.level == Level.BLOCK:
+                act.status = "blocked"
+                return Outcome("blocked", decision.level.label, act.id, list(decision.reasons))
+            client = get_or_create_client(s, name=a.client_name, email=str(a.client_email))
+            today = self.clock().date()
+            inv = Invoice(
+                client_id=client.id,
+                action_id=act.id,
+                amount=total,
+                currency=a.currency,
+                description="; ".join(f"{i.quantity} x {i.name}" for i in a.items),
+                terms_days=a.due_in_days,
+                issued_at=self.clock(),
+                due_date=today + dt.timedelta(days=a.due_in_days),
+                status="DRAFT",
+            )
+            s.add(inv)
+            s.flush()
+            if self.risk_scorer:
+                inv.risk_score, inv.risk_reasons = self.risk_scorer(s, inv)
+            act.status = "approved"
+            action_id = act.id
+        # Committed: the record exists before PayPal is called.
+        return self.execute_invoice(action_id)
+
+    def execute_invoice(self, action_id: str) -> Outcome:
+        with session_scope(self.sessions) as s:
+            act = s.get(Action, action_id)
+            inv = s.query(Invoice).filter_by(action_id=action_id).one()
+            payload = act.payload
+            if self.invoicing is None:
+                act.status = "failed"
+                audit.record(
+                    s,
+                    actor="system",
+                    event="execution_skipped",
+                    action_id=action_id,
+                    reason="PayPal is not configured",
+                )
+                return Outcome(
+                    "failed", "PayPal is not configured (set PAYPAL_CLIENT_ID/SECRET)", action_id
+                )
+            draft = InvoiceDraft(
+                client_name=payload["client_name"],
+                client_email=payload["client_email"],
+                currency=payload["currency"],
+                items=[
+                    LineItem(
+                        name=i["name"],
+                        quantity=i["quantity"],
+                        unit_amount=Decimal(i["unit_amount"]),
+                    )
+                    for i in payload["items"]
+                ],
+                invoice_date=inv.issued_at.date(),
+                due_date=inv.due_date,
+                note=payload.get("note", ""),
+            )
+            try:
+                if not inv.paypal_invoice_id:
+                    rid = request_id(action_id, "invoice.create")
+                    created = self.invoicing.create_draft(draft, request_id=rid)
+                    inv.paypal_invoice_id, inv.number = created.paypal_id, created.number
+                    audit.record(
+                        s,
+                        actor="paypal",
+                        event="invoice_created",
+                        action_id=action_id,
+                        paypal_request_id=rid,
+                        paypal_debug_id=created.debug_id,
+                        paypal_invoice_id=created.paypal_id,
+                    )
+                rid = request_id(action_id, "invoice.send")
+                sent = self.invoicing.send(inv.paypal_invoice_id, request_id=rid)
+            except PayPalError as e:
+                act.status = "failed"
+                act.result = {"error": str(e), "kind": type(e).__name__}
+                audit.record(
+                    s,
+                    actor="paypal",
+                    event="paypal_error",
+                    action_id=action_id,
+                    paypal_debug_id=e.debug_id,
+                    error=str(e),
+                    kind=type(e).__name__,
+                )
+                return Outcome("paypal_error", e.user_message(), action_id)
+            inv.status = local_status(sent.status)
+            inv.number = sent.number or inv.number
+            inv.pay_url = sent.pay_url
+            act.status = "executed"
+            act.result = {"paypal_invoice_id": sent.paypal_id, "paypal_status": sent.status}
+            audit.record(
+                s,
+                actor="paypal",
+                event="invoice_sent",
+                action_id=action_id,
+                paypal_request_id=rid,
+                paypal_debug_id=sent.debug_id,
+                paypal_invoice_id=sent.paypal_id,
+                paypal_status=sent.status,
+            )
+            data = {
+                "paypal_invoice_id": sent.paypal_id,
+                "invoice_number": inv.number,
+                "total": f"{inv.amount:.2f}",
+                "currency": inv.currency,
+                "due_date": inv.due_date.isoformat(),
+                "client_email": payload["client_email"],
+            }
+            if inv.risk_score is not None:
+                data["late_payment_risk"] = round(inv.risk_score, 2)
+            return Outcome(
+                "executed",
+                f"Invoice for {fmt(inv.amount, inv.currency)} sent to {payload['client_email']}",
+                action_id,
+                data=data,
+            )
+
+    # --------------------------------------------------------------- payouts
+    def propose_payout(self, a: SendPayout, *, source: str = "chat") -> Outcome:
+        with session_scope(self.sessions) as s:
+            policy = load_policy(s)
+            recipient = get_or_create_recipient(
+                s, email=str(a.recipient_email), name=a.recipient_name
+            )
+            ml = MLSignals()
+            if self.anomaly_scorer:
+                ml = self.anomaly_scorer(
+                    s,
+                    {
+                        "recipient_id": recipient.id,
+                        "amount": a.amount,
+                        "currency": a.currency,
+                        "at": self.clock(),
+                    },
+                )
+            decision = evaluate_payout(
+                amount=a.amount,
+                currency=a.currency,
+                recipient=recipient.email,
+                policy=policy,
+                spend=spend(s, a.currency, self.clock()),
+                recipient_allowlisted=recipient.allowlisted_at is not None,
+                ml=ml,
+            )
+            act = self._new_action(s, a, source, decision)
+            act.signals = {
+                "anomaly_flag": ml.anomaly_flag,
+                "anomaly_score": ml.anomaly_score,
+                "anomaly_reason": ml.anomaly_reason,
+            }
+            if ml.anomaly_flag:
+                audit.record(
+                    s, actor="ml", event="anomaly_flagged", action_id=act.id, **act.signals
+                )
+            if decision.level == Level.BLOCK:
+                act.status = "blocked"
+                return Outcome("blocked", decision.level.label, act.id, list(decision.reasons))
+            if decision.level in (Level.NEEDS_APPROVAL, Level.ESCALATED):
+                act.status = "held"
+                level = "escalated" if decision.level == Level.ESCALATED else "standard"
+                s.add(Approval(action_id=act.id, level=level))
+                return Outcome(
+                    decision.outcome,
+                    "Waiting in the Approvals inbox; nothing has been sent.",
+                    act.id,
+                    list(decision.reasons),
+                )
+            s.add(
+                Payout(
+                    action_id=act.id,
+                    recipient_id=recipient.id,
+                    amount=a.amount,
+                    currency=a.currency,
+                    note=a.note,
+                    status="approved",
+                    created_at=self.clock(),
+                    anomaly_score=ml.anomaly_score,
+                    anomaly_flag=ml.anomaly_flag,
+                    anomaly_reason=ml.anomaly_reason,
+                )
+            )
+            act.status = "approved"
+            action_id = act.id
+        return self.execute_payout(action_id)
+
+    def execute_payout(self, action_id: str) -> Outcome:
+        """Send an approved payout. The PayPal call itself is wired in M5."""
+        with session_scope(self.sessions) as s:
+            act = s.get(Action, action_id)
+            payout = s.query(Payout).filter_by(action_id=action_id).one()
+            act.status = payout.status = "failed"
+            audit.record(
+                s,
+                actor="system",
+                event="execution_skipped",
+                action_id=action_id,
+                reason="PayPal payouts are not configured",
+            )
+            return Outcome("failed", "PayPal payouts are not configured", action_id)
+
+    # ------------------------------------------------------------ read-only
+    def get_status(self, a: GetStatus, *, source: str = "chat") -> Outcome:
+        with session_scope(self.sessions) as s:
+            today = self.clock().date()
+            if a.target == "invoice":
+                rows = [
+                    {
+                        "invoice_number": inv.number,
+                        "paypal_invoice_id": inv.paypal_invoice_id,
+                        "client": {"untrusted_text": inv.client.name},
+                        "client_email": inv.client.email,
+                        "amount": f"{inv.amount:.2f}",
+                        "currency": inv.currency,
+                        "status": inv.status,
+                        "due_date": inv.due_date.isoformat(),
+                        "days_overdue": days_overdue(inv, today),
+                        "description": {"untrusted_text": inv.description},
+                        "late_payment_risk": inv.risk_score,
+                    }
+                    for inv in find_invoices(s, a.ref)
+                ]
+                return Outcome("info", f"{len(rows)} invoice(s) found", data={"invoices": rows})
+            if a.target == "payout":
+                rows = [
+                    {
+                        "recipient": p.recipient.email,
+                        "amount": f"{p.amount:.2f}",
+                        "currency": p.currency,
+                        "status": p.status,
+                        "paypal_batch_id": p.paypal_batch_id,
+                        "created_at": p.created_at.isoformat(),
+                        "anomaly_flag": p.anomaly_flag,
+                    }
+                    for p in find_payouts(s, a.ref)
+                ]
+                return Outcome("info", f"{len(rows)} payout(s) found", data={"payouts": rows})
+            policy = load_policy(s)
+            invoices = find_invoices(s, "", limit=500)
+            spent = spend(s, "USD", self.clock())
+            summary = {
+                "outstanding": sum(1 for i in invoices if i.status == "SENT"),
+                "overdue": sum(1 for i in invoices if days_overdue(i, today) > 0),
+                "paid": sum(1 for i in invoices if i.status == "PAID"),
+                "spent_today_usd": f"{spent.today:.2f}",
+                "daily_cap_usd": f"{policy.daily_cap:.2f}",
+                "spent_month_usd": f"{spent.month:.2f}",
+                "monthly_cap_usd": f"{policy.monthly_cap:.2f}",
+                "auto_approve_limit_usd": f"{policy.auto_approve_limit:.2f}",
+                "pending_approvals": s.query(Approval).filter(Approval.decision.is_(None)).count(),
+            }
+            return Outcome("info", "summary", data=summary)
+
+    # --------------------------------------------------------- policy change
+    def propose_policy_change(self, a: UpdatePolicy, *, source: str = "chat") -> Outcome:
+        with session_scope(self.sessions) as s:
+            current = load_policy(s)
+            decision, proposed = evaluate_policy_change(
+                current=current, changes={a.field: a.new_value}
+            )
+            act = self._new_action(s, a, source, decision)
+            if decision.level == Level.BLOCK:
+                act.status = "blocked"
+                return Outcome("blocked", decision.level.label, act.id, list(decision.reasons))
+            act.payload = {**act.payload, "proposed_policy": proposed.to_dict()}
+            act.status = "held"
+            s.add(Approval(action_id=act.id, level="standard"))
+            return Outcome(
+                "needs_approval",
+                "Rule change queued for your approval in the Approvals inbox.",
+                act.id,
+                list(decision.reasons),
+            )
