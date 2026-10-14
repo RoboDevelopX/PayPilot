@@ -278,6 +278,8 @@ class ActionService:
                 "due_date": inv.due_date.isoformat(),
                 "client_email": payload["client_email"],
             }
+            if inv.pay_url:
+                data["pay_url"] = inv.pay_url  # the payer's link, shown under the chat reply
             if inv.risk_score is not None:
                 data["late_payment_risk"] = round(inv.risk_score, 2)
             return Outcome(
