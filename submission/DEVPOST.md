@@ -2,6 +2,17 @@
 
 Paste each section into the matching Devpost field. The personal parts of Inspiration, Challenges and What I learned are a first draft written only from what actually happened during this build (the sandbox country block, the cached token, the retry surprise, the Gemini limits, the Render deploy). Read every sentence before pasting and change anything that isn't true for you. The one `[TODO: …]` marker left is the video link, which you'll have after uploading.
 
+## Filling in the Devpost form
+
+1. Upload the video to YouTube first, with **Visibility: Public**, and copy its link. Recording notes are in [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
+2. **Project name:** PayPilot. **Elevator pitch:** the tagline below. **Thumbnail:** a 3:2 screenshot of the dashboard.
+3. **About the project:** paste everything from Inspiration through What's next for PayPilot, below.
+4. **Built with:** the tags at the end of this file.
+5. **Try it out:** the live app and the code links below.
+6. **Video demo link:** the YouTube link.
+7. **Image gallery:** 3:2 screenshots of the dashboard, the chat with payouts, the red approval card, the payout blocked by the cap, the rules and the audit log.
+8. Paste the testing instructions below into any testing or judging-instructions field, then check the preview and submit before **Nov 12, 12:00 pm Pacific** (1:30 am Nov 13 in India). You can keep editing until the deadline.
+
 **Tagline:** Your AI co-pilot for getting paid and paying smart.
 
 **Links:** demo video [TODO: video link] · live app https://paypilot-ytst.onrender.com · code https://github.com/RoboDevelopX/PayPilot
