@@ -1,0 +1,127 @@
+{
+  "id": "INV2-Q9CC-QS9R-64AP-UQ7K",
+  "status": "SENT",
+  "detail": {
+    "currency_code": "USD",
+    "note": "Automated PayPilot smoke test (sandbox).",
+    "memo": "Created by PayPilot (sandbox)",
+    "category_code": "SHIPPABLE",
+    "invoice_number": "0002",
+    "invoice_date": "2026-10-14",
+    "payment_term": {
+      "term_type": "DUE_ON_DATE_SPECIFIED",
+      "due_date": "2026-10-21"
+    },
+    "viewed_by_recipient": false,
+    "group_draft": false,
+    "metadata": {
+      "create_time": "2026-10-14T14:19:59Z",
+      "last_update_time": "2026-10-14T14:19:59Z",
+      "first_sent_time": "2026-10-14T14:20:00Z",
+      "last_sent_time": "2026-10-14T14:20:00Z",
+      "created_by_flow": "REGULAR_SINGLE",
+      "recipient_view_url": "https://www.sandbox.paypal.com/invoice/p/#Q9CCQS9R64APUQ7K",
+      "invoicer_view_url": "https://www.sandbox.paypal.com/invoice/details/INV2-Q9CC-QS9R-64AP-UQ7K",
+      "caller_type": "API_V2_INVOICE",
+      "spam_info": {}
+    },
+    "archived": false
+  },
+  "invoicer": {
+    "business_name": "PayPilot Demo Studio",
+    "email_address": "someone@example.com"
+  },
+  "primary_recipients": [
+    {
+      "billing_info": {
+        "business_name": "PayPilot smoke test",
+        "email_address": "someone@example.com"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "ITEM-8Y660878B6895432B",
+      "name": "Smoke test",
+      "quantity": "1",
+      "unit_amount": {
+        "currency_code": "USD",
+        "value": "1.00"
+      },
+      "unit_of_measure": "QUANTITY"
+    }
+  ],
+  "configuration": {
+    "tax_calculated_after_discount": false,
+    "tax_inclusive": false,
+    "allow_tip": false,
+    "allow_only_pay_by_bank": false,
+    "allow_vba_payments": false,
+    "save_item_for_future": true,
+    "template_id": "TEMP-73R70015604239826"
+  },
+  "amount": {
+    "breakdown": {
+      "item_total": {
+        "currency_code": "USD",
+        "value": "1.00"
+      },
+      "discount": {
+        "invoice_discount": {
+          "amount": {
+            "currency_code": "USD",
+            "value": "0.00"
+          }
+        },
+        "item_discount": {
+          "currency_code": "USD",
+          "value": "0.00"
+        }
+      },
+      "tax_total": {
+        "currency_code": "USD",
+        "value": "0.00"
+      }
+    },
+    "currency_code": "USD",
+    "value": "1.00"
+  },
+  "due_amount": {
+    "currency_code": "USD",
+    "value": "1.00"
+  },
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v2/invoicing/invoices/INV2-Q9CC-QS9R-64AP-UQ7K",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v2/invoicing/invoices/INV2-Q9CC-QS9R-64AP-UQ7K",
+      "rel": "replace",
+      "method": "PUT"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v2/invoicing/invoices/INV2-Q9CC-QS9R-64AP-UQ7K/cancel",
+      "rel": "cancel",
+      "method": "POST"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v2/invoicing/invoices/INV2-Q9CC-QS9R-64AP-UQ7K/remind",
+      "rel": "remind",
+      "method": "POST"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v2/invoicing/invoices/INV2-Q9CC-QS9R-64AP-UQ7K/payments",
+      "rel": "record-payment",
+      "method": "POST"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v2/invoicing/invoices/INV2-Q9CC-QS9R-64AP-UQ7K/generate-qr-code",
+      "rel": "qr-code",
+      "method": "GET"
+    }
+  ],
+  "unilateral": false,
+  "settings": {}
+}

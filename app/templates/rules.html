@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Rules</h1>
+<p class="muted">These rules decide what the assistant's proposals may do. The assistant can suggest a change, but every change it suggests waits for your approval; edits made here apply at once.</p>
+<div class="grid two">
+  {% include "partials/policy_form.html" %}
+  <section class="card stack">
+    <h2>How a payout is decided</h2>
+    <ul style="margin: 0; padding-left: 1.2rem">
+      <li><strong>Blocked</strong> if the currency isn't allowed, or it would push today's or this month's payouts over the cap. Approval can't override a cap.</li>
+      <li><strong>Needs your approval</strong> if it's above the auto-approve limit, or the recipient isn't on your allowlist.</li>
+      <li><strong>Flagged as unusual</strong> (red card, extra confirmation) if the anomaly detector says it doesn't look like your past payouts.</li>
+      <li><strong>Sent on its own</strong> otherwise.</li>
+    </ul>
+    <small class="muted">The strictest rule wins. The ML signal can only add caution, never remove it.</small>
+  </section>
+</div>
+<div style="margin-top: 1rem">{% include "partials/recipients.html" %}</div>
+{% endblock %}

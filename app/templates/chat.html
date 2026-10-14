@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row spread"><h1>Chat</h1><a class="button" href="/chat">New chat</a></div>
+<section class="card chat">
+  <div id="messages" class="messages" aria-live="polite">
+    <div class="msg assistant">Hi, I'm PayPilot. Tell me who to invoice or pay, or ask what's overdue. I propose actions; your rules decide what goes out on its own and what waits for your approval.</div>
+  </div>
+  <form class="composer" hx-post="/ui/chat" hx-target="#messages" hx-swap="beforeend" hx-indicator="#thinking"
+        hx-on::after-request="if (event.detail.successful) document.getElementById('message').value = ''">
+    <input type="hidden" id="conversation_id" name="conversation_id" value="">
+    <label for="message" class="sr-only">Message</label>
+    <textarea id="message" name="message" rows="2" maxlength="2000" required data-enter-submits
+              placeholder="Invoice Acme $450 for a logo, due in 14 days"></textarea>
+    <button class="primary" type="submit">Send</button>
+  </form>
+  <div id="thinking" class="htmx-indicator muted" style="margin-top: 0.5rem">PayPilot is working on it…</div>
+  <div class="suggestions">
+    <button type="button" data-suggest="Invoice Acme Corp (ap@acme.example) $450 for logo design, due in 14 days">Invoice a client</button>
+    <button type="button" data-suggest="Pay sam@example.com $40 for the icon set">Small payout</button>
+    <button type="button" data-suggest="Pay sam@example.com $120 for the brand guide">Payout over the limit</button>
+    <button type="button" data-suggest="Which invoices are overdue?">What's overdue?</button>
+    <button type="button" data-suggest="Send a reminder to Acme Corp">Chase a late payer</button>
+  </div>
+</section>
+{% endblock %}

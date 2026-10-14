@@ -1,0 +1,11 @@
+<div class="msg user">{{ user }}</div>
+{% if error %}
+  <div class="msg error">{{ error }}</div>
+{% else %}
+  {% for o in result.actions if o.tool not in ("get_status", "ask_clarification") %}
+    {% include "partials/outcome.html" %}
+  {% endfor %}
+  <div class="msg assistant">{{ result.reply }}</div>
+  <input type="hidden" id="conversation_id" name="conversation_id" value="{{ result.conversation_id }}" hx-swap-oob="true">
+{% endif %}
+<span id="approval-count" class="count" data-n="{{ pending_count }}" hx-swap-oob="true">{{ pending_count or "" }}</span>
