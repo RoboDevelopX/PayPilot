@@ -10,7 +10,7 @@ Deadline: **Thursday Nov 12, 2026, 12:00 pm Pacific** (1:30 am Nov 13 in India),
 - ✓ **Real recordings committed.** `invoice.json` and `payout_get.json` are captures from the US sandbox (emails redacted); `payout_create.json` is still hand-written.
 - ✓ **AI tools rule checked.** The rules don't require disclosing AI coding tools; the README lists the AI used inside the product.
 - ✓ **Deployed to Render** on 2026-10-14: https://paypilot-ytst.onrender.com. `/healthz` reports the PayPal sandbox, Gemini and both ML models, and a payout from chat works. Using Render also makes the project eligible for Render's sponsor prize ("all eligible submissions that use any Render tools").
-- ☐ **Webhook:** create it in the sandbox app, set `PAYPAL_WEBHOOK_ID` on Render, pay a sandbox invoice as the Personal account, and check that PayPilot marks it paid.
+- ✓ **Webhook** set up on 2026-10-14: `PAYPAL_WEBHOOK_ID` is on Render, and a $5 sandbox invoice sent from the hosted app's chat and paid as the US Personal account shows as Paid in PayPilot.
 - ☐ **Repo About box:** add a one-line description and the Render URL as the website, so judges land on the live app.
 - ☐ **Record the video** with [DEMO_SCRIPT.md](DEMO_SCRIPT.md): under 3 minutes, showing the app running, no music you don't own, no unneeded third-party brands. Upload it to **YouTube as Public**.
 - ☐ **Write the `[TODO: personal story]` parts** in [DEVPOST.md](DEVPOST.md) and the video opener, and add the video and app links.
