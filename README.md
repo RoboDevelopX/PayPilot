@@ -143,14 +143,8 @@ Webhook events handled: `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`,
 
 ## AI tools
 
-**In the product**
-
 - **Google Gemini** (free tier, default `gemini-3.8-flash`) or **Anthropic Claude** (default `claude-opus-5-5`), switchable with `LLM_PROVIDER` (`auto` picks Claude if its key is set, else Gemini). The model uses **tool calling** with strict JSON schemas to turn chat into one of the six actions above, and drafts reminder text in the tone the code chose. It never decides whether money moves.
 - **scikit-learn**: logistic regression with sigmoid calibration for late-payment risk (compared against HistGradientBoosting and two baselines), and Isolation Forest for payout anomalies. Seed 42; `make train` reproduces the artifacts byte for byte.
-
-**To build it**
-
-- **Claude Code** was used as a pair programmer for code, tests and docs.
 
 ## Setup with the real PayPal sandbox (under 10 minutes)
 
