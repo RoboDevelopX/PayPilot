@@ -7,6 +7,7 @@
 - In shot 3, answer the email question with your **sandbox Personal account email**, so you can show the invoice arriving at sandbox.paypal.com (logged in as that account, in a second tab).
 - Browser at 1280 px wide, zoom 110 to 125%, light theme, notifications off. Close other tabs and bookmarks bars.
 - No music you don't own (silence or a royalty-free track whose license you keep), and no logos or brands on screen other than PayPal's own sandbox pages.
+- The rules require a video **under 3 minutes**, showing the app running, uploaded to **YouTube as Public**, with the link on the Devpost form.
 - Before recording, rehearse once: every reply in the script has been run end to end in demo mode, but a real model words its replies its own way.
 
 ## Shots
