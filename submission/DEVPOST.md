@@ -1,6 +1,6 @@
 # PayPilot: Devpost write-up
 
-Paste each section into the matching Devpost field. Everything marked **[TODO: personal story]** is yours to write; nothing personal has been made up here. The other `[TODO: …]` marker is the video link, which you'll have after recording.
+Paste each section into the matching Devpost field. The personal parts of Inspiration, Challenges and What I learned are a first draft written only from what actually happened during this build (the sandbox country block, the cached token, the retry surprise, the Gemini limits, the Render deploy). Read every sentence before pasting and change anything that isn't true for you. The one `[TODO: …]` marker left is the video link, which you'll have after uploading.
 
 **Tagline:** Your AI co-pilot for getting paid and paying smart.
 
@@ -12,7 +12,7 @@ Paste each section into the matching Devpost field. Everything marked **[TODO: p
 
 AI agents are getting good at doing things, not just answering questions. Money is where most people stop: handing an AI your wallet feels reckless, yet chasing invoices and paying people by hand is tedious. PayPilot asks what it would take to let an agent do the work without ever trusting it with the final say.
 
-**[TODO: personal story]** Write a few sentences about the real moment that made you want to build this: an invoice you or someone you know had to chase, a payment that went wrong, or a reason you care about safe AI around money. Only use what actually happened.
+I'm an early-career ML engineer in India, and before this project I had never worked with payments, webhooks or deploying an app. The question I kept coming back to was simple: would I let an AI agent touch my own PayPal account? My honest answer was no, not unless something other than the model had the final say. PayPilot is my attempt to build that something, and to learn how payments really work along the way.
 
 ## What it does
 
@@ -44,9 +44,17 @@ AUTO             otherwise
 
 ## Challenges I ran into
 
-**[TODO: personal story]** Describe the challenges you actually hit, in your own words: what was hard, what you tried, what you'd do differently.
+Most of my hard moments came from the real PayPal sandbox rather than from the code.
 
-Technical problems the build had to solve, if you want to mention any:
+- **My sandbox accounts were in India.** The first live run failed: PayPal refused to send invoices to customers within India, and refused payouts with "You live in a country that is not allowed to send this payout." I created US sandbox Business and Personal accounts and a new app linked to the US Business account.
+- **A permission that wouldn't switch on.** Creating invoices kept returning 403 even after I ticked Invoicing on the new app. PayPal hands back the same access token for hours, with the permissions it had when it was first issued, so I added `make paypal-token-reset` to revoke it.
+- **Retries didn't behave the way I expected.** I expected a retried payout with the same `PayPal-Request-Id` to return the first answer. The live sandbox said instead that the batch already exists. Marking that as "failed" would have freed the spending caps for money that had already left, so PayPilot now follows PayPal's link to the original batch and reports it as sent.
+- **Running the AI for free.** The Claude API needs paid credit, so I added Google Gemini's free tier as a second provider. It allows only 20 requests a day on the main model and sometimes returns 503 under load, so PayPilot falls back to a lighter model and then to a clearly labeled demo script.
+- **Deploying.** My first Render deploy failed with the same country error as before, because I had pasted the old India app's Client ID. Comparing the first characters of the Client ID on Render with the one in the PayPal dashboard found it.
+
+If I started again, I'd create US sandbox accounts on day one and run one real payment end to end before writing much code.
+
+Technical problems the build had to solve:
 
 - **Keeping the model away from money without making it useless.** Rule changes became proposals that always wait for the user, so text injected into a chat or an invoice description can't raise its own limits.
 - **Making retries safe.** `PayPal-Request-Id` has a short length limit, so each step's id is a UUID derived from the action id, and the action is saved before PayPal is called.
@@ -63,7 +71,14 @@ Technical problems the build had to solve, if you want to mention any:
 
 ## What I learned
 
-**[TODO: personal story]** What did you learn? Some topics this project touches, if they match your experience: how idempotency keys make payment retries safe, why webhooks need signature verification and a polling fallback, OAuth client credentials, and deploying a FastAPI app on Render.
+Almost everything about payments was new to me. I learned:
+
+- why payment APIs need idempotency keys, and that "already sent" must never be treated like "failed";
+- that a webhook is just a public URL anyone can call, so each delivery has to be verified with PayPal and backed up by polling;
+- how OAuth client credentials work, including that a token keeps the permissions it was issued with;
+- that sandbox accounts follow real country rules;
+- how to deploy a FastAPI app on Render from a Blueprint, with secrets kept in environment variables;
+- and, from the ML side, how humbling an honest baseline is: my risk model only slightly beats each client's own past late rate, and I'd rather report that than hide it.
 
 ## What's next for PayPilot
 
