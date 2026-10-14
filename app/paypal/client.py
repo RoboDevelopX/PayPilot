@@ -9,6 +9,10 @@ Why this works (idempotency): every POST that creates something carries a
 `PayPal-Request-Id`. If the network drops after PayPal processed the request,
 retrying with the *same* id returns the original result instead of doing it
 twice. That is what makes the automatic retries below safe for money.
+
+Demo mode only: with a `RecordedSandbox`, a call that still fails after the
+retries because PayPal is unreachable or erroring (not a validation error) is
+answered from recorded responses, labeled as such (see app/paypal/recorded.py).
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -25,9 +29,14 @@ from app.config import SANDBOX_BASE_URL
 from app.paypal.errors import (
     PayPalAuthError,
     PayPalError,
+    PayPalRateLimited,
+    PayPalServerError,
     PayPalUnavailable,
     error_for_status,
 )
+
+if TYPE_CHECKING:
+    from app.paypal.recorded import RecordedSandbox
 
 log = logging.getLogger("paypilot.paypal")
 
@@ -54,6 +63,7 @@ class PayPalClient:
         timeout: float = 20.0,
         transport: httpx.BaseTransport | None = None,
         sleep=time.sleep,
+        recorded: RecordedSandbox | None = None,
     ) -> None:
         if base_url.rstrip("/") != SANDBOX_BASE_URL:
             raise ValueError("PayPilot only talks to the PayPal sandbox")
@@ -63,6 +73,7 @@ class PayPalClient:
         self._token_expires_at = 0.0
         self._lock = threading.Lock()
         self._sleep = sleep
+        self.recorded = recorded
 
     # ------------------------------------------------------------------ auth
     def access_token(self, *, force_refresh: bool = False) -> str:
@@ -105,6 +116,46 @@ class PayPalClient:
         prefer_representation: bool = True,
     ) -> PayPalResponse:
         """Send one API call. Retries only when it is safe (GET, or POST with a request id)."""
+        if self.recorded is not None and self.recorded.owns(path):
+            return self._from_recording(method, path, json, request_id)
+        try:
+            return self._request_live(
+                method,
+                path,
+                json=json,
+                params=params,
+                request_id=request_id,
+                prefer_representation=prefer_representation,
+            )
+        except (PayPalUnavailable, PayPalServerError, PayPalRateLimited) as e:
+            if self.recorded is None:
+                raise
+            log.warning("PayPal sandbox unavailable (%s); answering from a recording", e)
+            return self._from_recording(method, path, json, request_id)
+
+    def _from_recording(
+        self, method: str, path: str, body: Any, request_id: str | None
+    ) -> PayPalResponse:
+        assert self.recorded is not None
+        status, data, debug_id = self.recorded.respond(method, path, body, request_id)
+        return PayPalResponse(
+            status=status,
+            data=data,
+            debug_id=debug_id,
+            request_id=request_id,
+            headers={"paypal-debug-id": debug_id},
+        )
+
+    def _request_live(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: Any,
+        params: dict[str, Any] | None,
+        request_id: str | None,
+        prefer_representation: bool,
+    ) -> PayPalResponse:
         safe_to_retry = method.upper() == "GET" or request_id is not None
         refreshed = False
         attempt = 0

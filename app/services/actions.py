@@ -661,7 +661,7 @@ class ActionService:
                         "description": {"untrusted_text": inv.description},
                         "late_payment_risk": inv.risk_score,
                     }
-                    for inv in find_invoices(s, a.ref)
+                    for inv in find_invoices(s, a.ref, limit=10)
                 ]
                 return Outcome("info", f"{len(rows)} invoice(s) found", data={"invoices": rows})
             if a.target == "payout":

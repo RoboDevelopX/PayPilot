@@ -23,14 +23,16 @@
   {% if demo_mode %}
   <div class="banner demo" role="note"><strong>Demo mode:</strong> the data here is seeded sample data, and recorded PayPal sandbox responses stand in if the live sandbox is unreachable. Everything is sandbox; no real money moves.</div>
   {% endif %}
-  {% if not paypal_configured %}
+  {% if paypal_simulated %}
+  <div class="banner demo" role="note">No PayPal keys are set, so every PayPal call is <strong>simulated</strong> from recorded sandbox responses (their debug ids start with <code>demo-recorded-</code> in the audit log).</div>
+  {% elif not paypal_configured %}
   <div class="banner warn" role="note">PayPal sandbox keys are not set, so invoices and payouts can't be sent. Add <code>PAYPAL_CLIENT_ID</code> and <code>PAYPAL_CLIENT_SECRET</code> to the environment.</div>
   {% endif %}
   <main>{% block content %}{% endblock %}</main>
   <div id="toast" role="alert"></div>
   <footer>
     PayPal sandbox only · The AI proposes, the code disposes ·
-    AI: {{ llm or "not configured" }} · ML: {{ ml }} · <a href="/docs">API docs</a>
+    Assistant: {{ llm }} · ML: {{ ml }} · <a href="/docs">API docs</a>
   </footer>
 </body>
 </html>

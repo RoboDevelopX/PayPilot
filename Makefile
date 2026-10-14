@@ -3,7 +3,7 @@ PY ?= python3
 VENV := .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup run test lint fmt seed train smoke invoice secrets clean
+.PHONY: setup run demo test lint fmt seed train smoke invoice secrets clean
 
 setup:  ## create the venv, install deps, install the git pre-commit hook
 	$(PY) -m venv $(VENV)
@@ -11,10 +11,13 @@ setup:  ## create the venv, install deps, install the git pre-commit hook
 	$(BIN)/pip install -r requirements-dev.txt
 	@test -f .env || cp .env.example .env
 	-$(BIN)/pre-commit install
-	@echo "Now fill in .env, then: make run"
+	@echo "Try it now: make demo (no keys needed). For the real sandbox, fill in .env, then: make run"
 
-run:  ## start the app on http://localhost:8000
+run:  ## start the app on http://localhost:8000 (real sandbox, keys from .env)
 	$(BIN)/uvicorn app.main:create_app --factory --reload --port 8000
+
+demo:  ## DEMO MODE: sample data, recorded PayPal answers when needed, separate demo.db
+	DEMO_MODE=1 DATABASE_URL=sqlite:///./demo.db $(BIN)/uvicorn app.main:create_app --factory --port 8000
 
 test:  ## unit + integration tests (live tests skip unless keys are set)
 	$(BIN)/pytest
@@ -40,11 +43,11 @@ train:  ## regenerate synthetic data, retrain both models, write metrics
 invoice:  ## M1 proof: one real sandbox invoice
 	$(BIN)/python -m scripts.create_sandbox_invoice
 
-smoke:  ## live end-to-end check against the PayPal sandbox
-	$(BIN)/python -m scripts.smoke_test
+smoke:  ## live end-to-end check against the PayPal sandbox (ARGS="--llm --record")
+	$(BIN)/python -m scripts.smoke_test $(ARGS)
 
 secrets:
 	$(BIN)/python scripts/check_secrets.py
 
 clean:
-	rm -rf .pytest_cache .ruff_cache paypilot.db*
+	rm -rf .pytest_cache .ruff_cache paypilot.db* demo.db*

@@ -19,10 +19,12 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 
+from app.auth import BasicAuthMiddleware
 from app.config import Settings, get_settings
 from app.container import build_container
 from app.db import init_db, make_engine, make_session_factory
 from app.routers import approvals, chat, invoices, ui
+from app.services.seed import seed_demo
 
 log = logging.getLogger("paypilot")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -59,12 +61,20 @@ def create_app(
         engine.dispose()
 
     app = FastAPI(title="PayPilot", version="0.2.0", lifespan=lifespan)
+    if settings.app_password.get_secret_value():
+        app.add_middleware(
+            BasicAuthMiddleware,
+            username=settings.app_username,
+            password=settings.app_password.get_secret_value(),
+        )
     app.state.settings = settings
     app.state.engine = engine
     app.state.sessions = sessions
     app.state.container = build_container(
         settings, sessions, paypal_transport=paypal_transport, llm_create=llm_create
     )
+    if settings.demo_mode and seed_demo(app.state.container.actions, app.state.container.ml):
+        log.info("DEMO_MODE: loaded sample data into an empty database")
     app.include_router(chat.router)
     app.include_router(invoices.router)
     app.include_router(approvals.router)
@@ -75,12 +85,14 @@ def create_app(
     def healthz() -> dict[str, object]:
         return {
             "ok": True,
-            "paypal": "sandbox" if settings.paypal_configured else "not configured",
-            "llm": (
-                f"{settings.active_llm}:{settings.llm_model}"
-                if settings.active_llm
-                else "not configured"
+            "paypal": (
+                "sandbox"
+                if settings.paypal_configured
+                else (
+                    "simulated (demo recordings)" if settings.paypal_simulated else "not configured"
+                )
             ),
+            "llm": settings.assistant_label,
             "ml": app.state.container.ml.status,
             "demo_mode": settings.demo_mode,
         }

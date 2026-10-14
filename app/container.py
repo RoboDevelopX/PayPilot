@@ -11,11 +11,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.agent.gemini import GeminiCreate
 from app.agent.llm import Agent, anthropic_create
+from app.agent.recorded import DemoFallbackLLM, ScriptedLLM
 from app.config import Settings
 from app.paypal import client_from_settings
 from app.paypal.client import PayPalClient
 from app.paypal.invoices import InvoicingAPI
 from app.paypal.payouts import PayoutsAPI
+from app.paypal.recorded import RecordedSandbox
 from app.services.actions import ActionService
 from app.services.approvals import ApprovalService
 from app.services.conversations import ConversationStore
@@ -56,8 +58,13 @@ def build_container(
     paypal = None
     invoicing = None
     payouts = None
-    if settings.paypal_configured:
-        paypal = client_from_settings(settings, transport=paypal_transport)
+    # Demo mode only: recorded sandbox responses stand in when PayPal is unreachable,
+    # or for every call when no PayPal keys are set (see app/paypal/recorded.py).
+    recorded = (
+        RecordedSandbox(always=not settings.paypal_configured) if settings.demo_mode else None
+    )
+    if settings.paypal_configured or recorded:
+        paypal = client_from_settings(settings, transport=paypal_transport, recorded=recorded)
         invoicing = InvoicingAPI(
             paypal,
             invoicer_email=settings.paypal_invoicer_email,
@@ -68,6 +75,9 @@ def build_container(
         llm_create = make_llm(settings)
     model = settings.llm_model or settings.anthropic_model
     drafter = LLMDrafter(llm_create, model=model) if llm_create else TemplateDrafter()
+    if settings.demo_mode:
+        # Demo mode only: the scripted assistant answers when no model is available.
+        llm_create = DemoFallbackLLM(llm_create) if llm_create else ScriptedLLM()
     ml = MLScorers.load() if settings.ml_enabled else MLScorers()
     actions = ActionService(
         sessions,

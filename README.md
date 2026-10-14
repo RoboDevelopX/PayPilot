@@ -2,134 +2,247 @@
 
 **Your AI co-pilot for getting paid and paying smart.**
 
-PayPilot is an AI agent that handles PayPal payment tasks from plain-language chat: it creates and sends PayPal invoices, pays people through PayPal Payouts, and follows up on unpaid invoices on its own. You stay in control with rules the agent cannot change: payments at or under your limit go through automatically, and anything above it waits for your approval.
+PayPilot turns plain-language requests into PayPal work: it creates and sends invoices, pays people through PayPal Payouts, and chases unpaid invoices with reminders that get firmer over time. You stay in charge through rules the AI cannot change. Small payments to people you already pay go through on their own; anything bigger, newer or stranger waits for you, and some things are never allowed at all.
 
-Built for the **Build What's Next with PayPal and AI** hackathon.
+Built for the **Build What's Next with PayPal and AI** hackathon. **PayPal sandbox only**: the PayPal base URL is locked to `api-m.sandbox.paypal.com` in code, and the UI says so on every page.
 
-> **The AI proposes, the code disposes.** Claude never calls PayPal. It returns a structured action (a tool call), and deterministic Python checks it against your rules before anything reaches PayPal.
+> **The AI proposes, the code disposes.** The language model never calls PayPal and never sees PayPal credentials. It can only return a structured action (a tool call). Pydantic validates it, a pure policy engine decides, and only then does PayPilot's own code call PayPal, or hold the action for your approval.
 
-```
- You: "Send carol@example.com $400 for the photo shoot"
-   │
-   ▼
- Claude (tool use) ──► send_payout {recipient_email, amount: "400", currency: "USD"}   ← a proposal, nothing more
-   │
-   ▼
- Validator (app/rules.py)  shape ✓  email ✓  amount ✓  currency ✓  hard cap ✓
-   │
-   ▼
- Policy    a = $400 > L = $50  ──►  needs_approval  ──►  Approvals panel (nothing sent)
-           a ≤ L, within daily budget  ──►  auto_approve  ──►  PayPal Payouts API
-           breaks a hard rule  ──►  deny (never reaches PayPal)
-```
+## Contents
 
-## Features
+- [Try it in two minutes (demo mode, no keys)](#try-it-in-two-minutes-demo-mode-no-keys)
+- [What it does](#what-it-does)
+- [How it works](#how-it-works)
+- [APIs used](#apis-used)
+- [AI tools](#ai-tools)
+- [Setup with the real PayPal sandbox (under 10 minutes)](#setup-with-the-real-paypal-sandbox-under-10-minutes)
+- [Demo mode](#demo-mode)
+- [Deploy on Render](#deploy-on-render)
+- [Why this works](#why-this-works)
+- [Security](#security)
+- [Project layout](#project-layout)
+- [Development](#development)
+- [Limitations](#limitations)
+- [License](#license)
 
-- **Invoices from a sentence.** "Bill dana@example.com $300 for 3 hours of consulting, due in 30 days" becomes a PayPal invoice (Invoicing v2) with line items, a due date and a friendly note, sent to the client by PayPal.
-- **Payouts with guardrails.** "Pay bob@example.com $25 for lunch" sends money through PayPal Payouts, only when the rules allow it:
+## Try it in two minutes (demo mode, no keys)
 
-  | Rule | Effect |
-  |---|---|
-  | Per-payment limit **L** | `a ≤ L` auto-approves, `a > L` asks you |
-  | Daily auto-approve budget | auto-approvals stop once today's total would pass it |
-  | Hard cap | never exceeded, even with your approval |
-  | Allowed currencies | anything else is denied |
-  | Ask before paying someone new (optional) | first payout to a new email waits for you |
-  | Cancelling an invoice | always needs your approval |
-
-- **Approval queue.** Anything above your rules waits in the Approvals panel with the exact reasons. Approving re-checks the hard rules, and an approval can only be used once.
-- **Automatic follow-ups.** A scheduler checks unpaid invoices against PayPal and sends reminders on your timetable (first after N hours, then every M hours, up to a maximum). Claude writes each reminder, getting gently firmer each time. Paid invoices are never chased, because status is re-read from PayPal first.
-- **Audit log.** Every proposal, verdict, approval and PayPal call is recorded.
-- **Webhooks.** `POST /webhooks/paypal` verifies PayPal's signature and marks invoices paid and payouts settled as PayPal reports them.
-- **Mock mode.** With no keys, PayPilot runs against an in-memory PayPal and an offline parser, so anyone can try the whole flow in a minute.
-
-## Quick start (no keys, about 1 minute)
-
-Requires Python 3.10 or newer.
+Requires Python 3.11 or newer and `make`.
 
 ```bash
-git clone https://github.com/RoboDevelopX/paypilot.git
-cd paypilot
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+git clone https://github.com/RoboDevelopX/PayPilot.git
+cd PayPilot
+make setup      # venv, dependencies, git pre-commit hook, .env from .env.example
+make demo       # http://localhost:8000
 ```
 
-Open http://localhost:8000. The header shows **PayPal · mock mode** and **AI · offline parser**. Click the suggestion chips, approve something in the Approvals panel, press **Simulate payment** on an invoice, and press **Run follow-ups now**.
+`make demo` starts PayPilot in **demo mode**: sample data (a small design studio with five clients and four payees), PayPal answered from labeled recordings because no keys are set, and a scripted assistant because no AI key is set. A banner on every page says which parts are simulated, and the footer names the assistant in use. See [Demo mode](#demo-mode) for exactly what is real.
 
-## Run with the real PayPal sandbox and Claude
-
-1. **PayPal sandbox app.** Sign in at [developer.paypal.com](https://developer.paypal.com), open **Apps & Credentials**, stay on **Sandbox**, and create an app (type: Merchant). Copy its **Client ID** and **Secret**. Under the app's features, make sure **Invoicing** and **Payouts** are enabled.
-2. **Sandbox test accounts.** Under **Testing Tools > Sandbox Accounts** you have a Business account (the one your app sends from) and a Personal account (use its email as a client or payee). Log in to [sandbox.paypal.com](https://www.sandbox.paypal.com) with the Personal account to pay invoices.
-3. **Anthropic API key** from [console.anthropic.com](https://console.anthropic.com).
-4. Put the keys in a local `.env` (never commit it, never paste keys into chats or issues):
-
-   ```bash
-   cp .env.example .env
-   # edit .env: PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, ANTHROPIC_API_KEY
-   uvicorn app.main:app --reload
-   ```
-
-   The header now shows **PayPal sandbox · live** and the Claude model in use.
-
-5. **Optional webhooks.** In your sandbox app, add a webhook pointing to `https://<your-host>/webhooks/paypal` with the events `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`, `PAYMENT.PAYOUTSBATCH.SUCCESS` and `PAYMENT.PAYOUTSBATCH.DENIED`, and set `PAYPAL_WEBHOOK_ID`. Without webhooks, invoice status is still refreshed from PayPal before every reminder and with the **Refresh status** button.
-
-Each half falls back to mock independently: PayPal keys alone give real PayPal with the offline parser, and an Anthropic key alone gives Claude with mock PayPal. `PAYPILOT_MOCK_PAYPAL=1` or `PAYPILOT_MOCK_AI=1` forces mock mode.
-
-## Deploy on Render
-
-1. Fork or push this repo to GitHub.
-2. In Render, choose **New > Blueprint** and select the repo. `render.yaml` defines the web service.
-3. Fill in `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `ANTHROPIC_API_KEY` when prompted (leave them blank for a mock-mode demo).
-4. Open the service URL. `/healthz` reports which modes are active.
-
-Note: Render's free plan sleeps when idle and has no persistent disk, so the demo database resets on restart and follow-ups only run while the service is awake. Use a paid instance with a disk (and point `PAYPILOT_DB` at it) for anything longer-lived. The chat endpoint is rate-limited per IP so a public demo can't run up the AI bill.
-
-## Try these
+Then type these in **Chat**, in order:
 
 | Say | What happens |
 |---|---|
-| `Invoice alice@example.com $1,200 for the website redesign, due in 30 days` | Invoice created and sent through PayPal |
-| `Bill Dana Lee dana@example.com for 3 hours of consulting at $120 and a $40 travel fee` | Claude splits it into two line items |
-| `Pay bob@example.com $25 for lunch` | `$25 ≤ L`, auto-approved, Payout sent |
-| `Send carol@example.com $400 for the photo shoot` | `$400 > L`, queued for your approval |
-| `Pay dan@example.com $5,000` | Above the hard cap, denied |
-| `Which invoices are still unpaid?` | Lists open invoices |
-| `Remind Alice about her invoice` | Claude finds the invoice, then a reminder goes out through PayPal |
-| `Cancel Alice's invoice` | Always queued for approval |
-| `Raise my limit to $10,000` | Refused: only you can change rules, in the Rules panel |
+| `Invoice Lumen Labs $600 for launch photos` | The assistant asks for the client's email (no email, no invoice) |
+| `finance@lumenlabs.example` | Invoice created and sent |
+| `Pay sam@example.com $40 for the icon set` | $40 ≤ L ($50) and Sam is on the allowlist: paid automatically |
+| `Pay sam@example.com $120 for the brand guide` | $120 > L: held for your approval |
+| `Pay jo@example.com $160 for event photos` | Jo is new and the anomaly model flags the amount: a red **escalated** card |
+| `Send a reminder to Acme Corp` | Acme always pays late, so the tone is **final**, which needs your approval |
+| `Raise my auto-approve limit to $75` | Held: the assistant can never change your rules on its own |
+| `Raise my auto-approve limit to $500` | Blocked: a limit can't exceed the daily cap |
+| `Which invoices are overdue?` | Acme Corp and Northwind Traders |
 
-(The offline parser understands the simpler phrasings; Claude understands all of them.)
+Now open **Approvals**. Approve Sam's $120 and it goes out. Tick "I've checked this" on Jo's card and approve: it is still **blocked**, because the hard rules are re-checked at approval time and $40 + $120 + $160 is over the $200 daily cap.
+
+<details>
+<summary>Without make (Windows)</summary>
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements-dev.txt
+copy .env.example .env
+$env:DEMO_MODE="1"; $env:DATABASE_URL="sqlite:///./demo.db"
+uvicorn app.main:create_app --factory --port 8000
+```
+</details>
+
+## What it does
+
+1. **Chat to invoice.** "Invoice Acme Corp (ap@acme.example) $450 for logo design, due in 14 days" becomes a PayPal invoice (Invoicing v2), created and sent by PayPal. Missing details get one clarifying question instead of a guess.
+2. **A policy engine you control.** Pure Python, no I/O, every rule a readable reason. Defaults, all editable on the **Rules** page:
+
+   | Rule | Default | Effect |
+   |---|---|---|
+   | Auto-approve limit **L** | $50 | a ≤ L can go out alone; a > L waits for you |
+   | Daily cap **D** | $200 | hard block, even with your approval |
+   | Monthly cap **M** | $1,000 | hard block, even with your approval |
+   | Recipient allowlist **R** | Sam, Maya, Devon (demo) | first payout to anyone else waits for you |
+   | Currency allowlist **C** | USD | anything else is blocked |
+   | Invoice cap | $10,000 | largest invoice the assistant may create |
+   | Auto-reminders up to | firm | a "final" reminder waits for you |
+
+3. **Guardrailed payouts** through PayPal Payouts, with a single-use approval queue. An approval re-runs the hard rules before money moves.
+4. **Smart follow-ups.** A background job polls open invoices (webhooks update them too), picks a tone from days overdue (friendly 1–7, firm 8–20, final 21+), moves high-risk clients one step up the ladder, never softens, and has the AI draft the text. Paid invoices are never chased.
+5. **Append-only audit trail.** Every proposal, decision, approval, PayPal call (with its `PayPal-Request-Id` and `PayPal-Debug-Id`) and webhook is recorded. SQLite triggers reject UPDATE and DELETE on the audit table.
+6. **Classical ML, advisory only.** A late-payment risk model (calibrated logistic regression) and a payout anomaly detector (Isolation Forest), trained on seeded synthetic data with real held-out metrics. ML can only *raise* the approval level, never lower it. Details in [ml/MODEL_CARD.md](ml/MODEL_CARD.md) and [ml/reports/REPORT.md](ml/reports/REPORT.md).
+7. **Dashboard.** Outstanding, overdue and paid this month; spend against caps; approvals waiting; clients at risk; flagged payouts; and advice such as "Acme Corp is likely to pay late; consider net-7 terms" when shorter terms would lower the estimated risk.
+
+Multi-currency works in the narrow sense: you can allow several currencies, and caps and totals are kept per currency (no FX conversion). Per-agent budgets were a stretch goal and are not built.
 
 ## How it works
 
-| File | Role |
-|---|---|
-| `app/agent.py` | Claude tool-use loop. Defines strict tool schemas, sends the conversation, hands each tool call to the service, returns the verdict to Claude. Also drafts reminder text with structured output. Includes the offline `MockAgent`. |
-| `app/rules.py` | Pure, deterministic validation and policy. No I/O, fully unit tested. |
-| `app/actions.py` | The only code that calls PayPal, and only after a verdict allows it. Approval queue, reminders, audit log. |
-| `app/paypal.py` | PayPal REST client (OAuth2, Invoicing v2, Payouts v1, webhook verification) plus an in-memory mock with the same interface. |
-| `app/main.py` | FastAPI routes, reminder scheduler, webhook endpoint. |
-| `static/` | The chat UI with Rules, Approvals, Invoices, Payouts and Audit log panels. |
-
-Safety details worth knowing:
-
-- Claude has no PayPal credentials and no tool that changes rules.
-- Amounts are parsed as decimals and rounded to cents. NaN, infinity, zero and negative amounts are rejected.
-- Payouts use a unique `sender_batch_id` and invoices use a `PayPal-Request-Id`, so retries cannot pay or bill twice.
-- Evaluating and recording a payout happens under a lock, so two simultaneous requests can't both slip under the daily budget.
-- An approval re-checks the hard rules and can be used once.
-
-See [docs/TOOLS.md](docs/TOOLS.md) for the tools and AI usage, and [docs/WRITEUP.md](docs/WRITEUP.md) for the project write-up.
-
-## Tests
-
-```bash
-pip install -r requirements-dev.txt
-pytest -q
+```mermaid
+flowchart TD
+    U["You: chat, approvals, rules"] --> UI["FastAPI + Jinja + HTMX"]
+    UI -->|"message (rate-limited)"| LLM["Gemini or Claude<br/>tool use, strict schemas"]
+    LLM -->|"proposed action (JSON)"| V["Pydantic v2 validation<br/>amounts as Decimal"]
+    V --> P{"Policy engine<br/>pure function"}
+    ML["ML: late-payment risk,<br/>payout anomaly"] -.->|"can only raise the level"| P
+    P -->|"AUTO"| X["Action service<br/>the only code that calls PayPal"]
+    P -->|"NEEDS_APPROVAL / ESCALATED"| Q["Approval queue<br/>single-use, rules re-checked"]
+    Q -->|"you approve"| X
+    P -->|"BLOCK"| A[("Append-only audit log")]
+    X -->|"OAuth token, PayPal-Request-Id"| PP["PayPal sandbox<br/>Invoicing v2, Payouts v1"]
+    PP -->|"signed webhooks"| W["/webhooks/paypal<br/>verified, deduplicated"]
+    F["Follow-up job<br/>polls open invoices"] --> X
+    W --> DB[("SQLite")]
+    X --> A
+    X --> DB
 ```
 
-The suite covers the rules engine, the full HTTP flow in mock mode, and the Claude tool loop with a scripted fake API.
+For a payout of amount *a* in currency *c* to recipient *r*, with *s_d* already paid out today and *s_m* this month:
+
+```
+BLOCK            if c ∉ C  or  s_d + a > D  or  s_m + a > M
+NEEDS_APPROVAL   if r ∉ R  or  a > L
+ESCALATED        if the anomaly detector flags the payout
+AUTO             otherwise
+```
+
+Levels are ordered `AUTO < NEEDS_APPROVAL < ESCALATED < BLOCK` and the result is the maximum over all rules. An escalated payout shows as a red card that needs an "I've checked this" tick and can't be approved from chat. The assistant's own tools are `create_invoice`, `send_payout`, `send_reminder`, `get_status`, `ask_clarification` and `update_policy`; the last one is always held for your approval, so text injected into a chat or an invoice description can't raise its own limits.
+
+**Why not the PayPal agent toolkit?** It hands PayPal operations to the model as tools, so the model itself makes the PayPal call. PayPilot's whole point is the opposite: the model has no PayPal tools or credentials, and a deterministic engine sits between every proposal and PayPal.
+
+## APIs used
+
+All calls go to the PayPal **sandbox** (`https://api-m.sandbox.paypal.com`). Endpoints and payload shapes were checked against developer.paypal.com in October 2026.
+
+| PayPal API | Endpoint | Used for |
+|---|---|---|
+| OAuth 2.0 client credentials | `POST /v1/oauth2/token` | access token, cached and refreshed 60 s before expiry |
+| Invoicing v2 | `POST /v2/invoicing/invoices` | create a draft invoice |
+| | `POST /v2/invoicing/invoices/{id}/send` | send it to the client |
+| | `GET /v2/invoicing/invoices/{id}` | status for polling and the dashboard |
+| | `POST /v2/invoicing/invoices/{id}/remind` | payment reminders |
+| Payouts v1 | `POST /v1/payments/payouts` | send money to an email (`sender_batch_id` = our action id) |
+| | `GET /v1/payments/payouts/{batch_id}` | batch and item status |
+| Webhooks | `POST /v1/notifications/verify-webhook-signature` | prove a webhook really came from PayPal |
+
+Webhook events handled: `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`, `INVOICING.INVOICE.REFUNDED`, `PAYMENT.PAYOUTSBATCH.*` and `PAYMENT.PAYOUTS-ITEM.*`.
+
+## AI tools
+
+**In the product**
+
+- **Google Gemini** (free tier, default `gemini-3.8-flash`) or **Anthropic Claude** (default `claude-opus-5-5`), switchable with `LLM_PROVIDER` (`auto` picks Claude if its key is set, else Gemini). The model uses **tool calling** with strict JSON schemas to turn chat into one of the six actions above, and drafts reminder text in the tone the code chose. It never decides whether money moves.
+- **scikit-learn**: logistic regression with sigmoid calibration for late-payment risk (compared against HistGradientBoosting and two baselines), and Isolation Forest for payout anomalies. Seed 42; `make train` reproduces the artifacts byte for byte.
+
+**To build it**
+
+- **Claude Code** was used as a pair programmer for code, tests and docs.
+
+## Setup with the real PayPal sandbox (under 10 minutes)
+
+1. **PayPal sandbox app (3 min).** Sign in at [developer.paypal.com](https://developer.paypal.com), open **Apps & Credentials**, make sure the toggle says **Sandbox**, and click **Create App** (type Merchant). Copy the **Client ID** and **Secret**. In the app's features, make sure **Invoicing** and **Payouts** are ticked.
+2. **Sandbox accounts (1 min).** Under **Testing Tools > Sandbox Accounts** you already have a **Business** account (the merchant your app acts as) and a **Personal** account (the client who pays). Copy both emails. You can log in to [sandbox.paypal.com](https://www.sandbox.paypal.com) as the Personal account to pay invoices.
+3. **AI key (2 min).** Free: get a Gemini key at [aistudio.google.com](https://aistudio.google.com) > **Get API key**. Or paid: an Anthropic key from [console.anthropic.com](https://console.anthropic.com).
+4. **Configure (1 min).** `make setup` created `.env`. Fill it in locally; never paste keys into a chat, issue or commit:
+
+   ```bash
+   PAYPAL_CLIENT_ID=...
+   PAYPAL_CLIENT_SECRET=...
+   PAYPAL_INVOICER_EMAIL=...   # sandbox Business email
+   PAYPAL_PAYER_EMAIL=...      # sandbox Personal email
+   GEMINI_API_KEY=...          # or ANTHROPIC_API_KEY=...
+   ```
+
+5. **Check it (1 min).** `make smoke` runs a live end-to-end check and prints PASS or FAIL per step: OAuth, invoice create, send and remind, a $1.00 payout, a retried payout that must not pay twice, payout status, and a forged webhook that must be rejected. `make smoke ARGS=--llm` also runs one real chat turn, with nothing executed.
+6. **Run it.** `make run` and open http://localhost:8000. The footer shows the AI provider and model; `/healthz` reports `"paypal": "sandbox"`.
+
+## Demo mode
+
+`DEMO_MODE=1` (what `make demo` and the Render blueprint set) does three things, and labels each one:
+
+| | Real sandbox path (default) | Demo mode |
+|---|---|---|
+| Data | empty database | sample data seeded on boot, marked "sample data" everywhere |
+| PayPal | live sandbox | live sandbox if keys are set; if it is unreachable or erroring after retries, or no keys are set, the call is answered from [recorded responses](app/paypal/recorded/) |
+| AI | your key, or chat is off | your key; if there's no key or the model fails, a scripted assistant that knows the demo phrasings and starts every reply with "Demo script (no AI model):" |
+
+Simulated PayPal answers carry a `PayPal-Debug-Id` starting with `demo-recorded-` and ids like `INV2-DEMO-…` or `DEMO-BATCH-…`, so the audit log shows exactly which steps never touched PayPal. A webhook can never be verified from a recording. Validation errors from the live sandbox are never papered over. With `DEMO_MODE=0` (the default) none of this is wired in.
+
+## Deploy on Render
+
+1. Push the repo to GitHub. In Render, choose **New > Blueprint** and pick the repo; [render.yaml](render.yaml) defines one free web service.
+2. Render asks for each secret. Leave any you don't have blank: with none at all you get a fully labeled demo. Set **APP_PASSWORD** to put the site behind HTTP Basic auth (user `paypilot`); `/healthz`, `/webhooks/paypal` and `/static` stay open.
+3. Open `https://<your-service>.onrender.com/healthz` to see which parts are live.
+4. **Webhooks (optional, 2 min).** In your sandbox app on developer.paypal.com, under **Webhooks**, add `https://<your-service>.onrender.com/webhooks/paypal` with the events `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`, `INVOICING.INVOICE.REFUNDED`, `PAYMENT.PAYOUTSBATCH.SUCCESS`, `PAYMENT.PAYOUTSBATCH.DENIED` and the `PAYMENT.PAYOUTS-ITEM.*` events. Copy the **Webhook ID** into `PAYPAL_WEBHOOK_ID` in Render. Without webhooks, the follow-up job still polls open invoices.
+
+The free plan sleeps after about 15 idle minutes and wipes its disk on every deploy, so the SQLite database starts empty and demo data is reseeded on boot. The chat is rate-limited per IP (20 messages a minute) so a public demo can't burn through an AI quota.
+
+## Why this works
+
+Short notes on the parts that are easy to get wrong. Longer versions sit at the top of the files named.
+
+- **Money** ([app/money.py](app/money.py)). Floats are binary fractions, so 0.1 + 0.2 ≠ 0.3. PayPal exchanges amounts as decimal strings like `"450.00"`; PayPilot keeps them as `Decimal` end to end and stores cents, so what you typed is exactly what PayPal sees.
+- **OAuth 2.0 client credentials** ([app/paypal/client.py](app/paypal/client.py)). The app sends its client id and secret to `/v1/oauth2/token` and gets a short-lived bearer token. Caching it until 60 s before expiry means most calls cost one request, not two.
+- **Idempotency** ([app/services/actions.py](app/services/actions.py)). Each action is saved before PayPal is called, and its id derives the `PayPal-Request-Id` for every step (and the payout's `sender_batch_id`). If the network drops after PayPal acted, a retry with the same id returns the original result instead of paying or billing twice. `make smoke` checks this live.
+- **Webhooks** ([app/paypal/webhooks.py](app/paypal/webhooks.py)). Anyone can POST to a public URL, so PayPilot asks PayPal to verify each delivery's signature against its webhook id, stores each event id once (PayPal retries), and still polls, because webhooks can be missed.
+- **FastAPI** ([app/main.py](app/main.py)). `create_app()` builds the app from a `Settings` object, so tests get an isolated app with an in-memory database and a fake PayPal transport, while Uvicorn runs the real configuration with `--factory`.
+- **Render** ([render.yaml](render.yaml)). Render runs the build command, starts Uvicorn on `$PORT`, and only routes traffic to a new deploy once `/healthz` returns 200.
+
+## Security
+
+- Secrets live only in environment variables (`.env` locally, Render's secret store in production) and are `SecretStr`, so they never appear in logs or tracebacks. A pre-commit hook and CI run [scripts/check_secrets.py](scripts/check_secrets.py) to keep keys out of the repo.
+- Sandbox only: `PAYPAL_BASE_URL` refuses anything but the sandbox host.
+- User text and invoice descriptions are treated as untrusted. The model has no PayPal access and no tool that changes rules without your approval, and the policy engine always has the final say.
+- Approvals are single-use (an atomic database update) and re-check the hard rules.
+- The chat endpoint is rate-limited per client IP, keyed on the address Render's proxy saw, so a spoofed `X-Forwarded-For` doesn't help.
+
+## Project layout
+
+| Path | What's there |
+|---|---|
+| `app/agent/` | tool definitions, the tool-use loop (Claude and Gemini), the demo-mode script |
+| `app/policy/engine.py` | the pure policy engine |
+| `app/services/` | actions (the only PayPal caller), approvals, follow-ups, webhooks, audit, ML scoring, dashboard, demo seed |
+| `app/paypal/` | typed PayPal client, Invoicing, Payouts, webhook verification, demo recordings |
+| `app/routers/`, `app/templates/`, `app/static/` | JSON API, HTMX pages, CSS and vendored htmx |
+| `ml/` | synthetic data generator, shared features, training, evaluation, model card, artifacts |
+| `prompts/` | system prompt and reminder prompt |
+| `scripts/` | live smoke test, M1 invoice proof, seed, secret check |
+| `tests/` | about 200 tests; PayPal is faked with respx, live tests skip without keys |
+
+## Development
+
+| Command | Does |
+|---|---|
+| `make setup` | venv, dependencies, pre-commit hook, `.env` |
+| `make run` | the app with your `.env` (real sandbox path) |
+| `make demo` | the app in demo mode, on a separate `demo.db` |
+| `make test` | the test suite |
+| `make lint` | ruff, black, secret check |
+| `make train` | regenerate synthetic data, retrain both models, rewrite the ML report |
+| `make seed` | load the sample data into the configured database without demo mode |
+| `make smoke` | live sandbox end-to-end check (`ARGS="--llm --record"` for more) |
+
+## Limitations
+
+- Sandbox only, single user, single process. SQLite is fine for a demo; a real deployment would want Postgres and a proper job queue.
+- The ML models are trained on synthetic data. Their metrics show the pipeline is sound and honestly evaluated, not that they predict real customers. The risk model only slightly beats "this client's past late rate" (ROC-AUC 0.756 vs 0.748), and the anomaly detector catches 2 of 6 burst anomalies in the test window.
+- The demo recordings were written from PayPal's documented response shapes, not captured; `make smoke ARGS=--record` replaces them with real captures.
+- Reminders use PayPal's remind endpoint, so the email itself comes from PayPal.
 
 ## License
 

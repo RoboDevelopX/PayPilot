@@ -1,0 +1,8 @@
+{
+  "batch_header": {
+    "payout_batch_id": "DEMO-BATCH-0000",
+    "batch_status": "PENDING",
+    "sender_batch_header": {"sender_batch_id": "", "email_subject": ""}
+  },
+  "links": []
+}
