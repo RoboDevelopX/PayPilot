@@ -109,6 +109,33 @@ def test_quota_exhausted_is_a_friendly_error():
         agent.respond([], "hi")
 
 
+def test_overloaded_model_falls_back_to_lighter_model():
+    paths: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path.rsplit("/", 1)[-1])
+        if "gemini-busy" in request.url.path:
+            return httpx.Response(503, json={"error": {"code": 503, "status": "UNAVAILABLE"}})
+        return httpx.Response(200, json=model_turn({"text": "Hi!"})[1])
+
+    create = GeminiCreate(
+        "AIza-test",
+        model="gemini-busy",
+        fallback_model="gemini-lite",
+        transport=httpx.MockTransport(handle),
+    )
+    agent = Agent(create, handle_action=lambda *a, **k: None, model="gemini-busy")
+    assert agent.respond([], "hi").text == "Hi!"
+    assert paths == ["gemini-busy:generateContent", "gemini-lite:generateContent"]
+
+
+def test_overloaded_without_fallback_is_unavailable():
+    fake = FakeGemini((503, {"error": {"code": 503, "status": "UNAVAILABLE"}}))
+    agent, _ = agent_with(fake)
+    with pytest.raises(LLMUnavailable, match="503"):
+        agent.respond([], "hi")
+
+
 def test_safety_block_maps_to_refusal():
     fake = FakeGemini((200, {"promptFeedback": {"blockReason": "SAFETY"}}))
     agent, _ = agent_with(fake)

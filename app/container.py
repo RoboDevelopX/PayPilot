@@ -44,7 +44,11 @@ def make_llm(settings: Settings) -> Callable[..., Any] | None:
     if settings.active_llm == "anthropic":
         return anthropic_create(settings.anthropic_api_key.get_secret_value())
     if settings.active_llm == "gemini":
-        return GeminiCreate(settings.gemini_api_key.get_secret_value(), model=settings.gemini_model)
+        return GeminiCreate(
+            settings.gemini_api_key.get_secret_value(),
+            model=settings.gemini_model,
+            fallback_model=settings.gemini_fallback_model,
+        )
     return None
 
 
