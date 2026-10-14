@@ -8,6 +8,7 @@ and must never be pointed at live money by accident.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,10 +28,17 @@ class Settings(BaseSettings):
     paypal_payer_email: str = ""  # sandbox Personal account (pays the demo invoices)
     business_name: str = "PayPilot Demo Studio"
 
+    # LLM provider: "auto" picks Anthropic if its key is set, else Gemini if its key is set.
+    llm_provider: Literal["auto", "anthropic", "gemini"] = "auto"
+
     # Anthropic
     anthropic_api_key: SecretStr = SecretStr("")
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: str = "medium"  # low/medium/high: thinking depth vs. latency and cost
+
+    # Google Gemini (free tier key from aistudio.google.com)
+    gemini_api_key: SecretStr = SecretStr("")
+    gemini_model: str = "gemini-3.8-flash"
 
     # App
     database_url: str = "sqlite:///./paypilot.db"
@@ -57,6 +65,27 @@ class Settings(BaseSettings):
     @property
     def anthropic_configured(self) -> bool:
         return bool(self.anthropic_api_key.get_secret_value())
+
+    @property
+    def gemini_configured(self) -> bool:
+        return bool(self.gemini_api_key.get_secret_value())
+
+    @property
+    def active_llm(self) -> str | None:
+        """Which provider the agent will use, or None if no key is set."""
+        if self.llm_provider == "anthropic" or (
+            self.llm_provider == "auto" and self.anthropic_configured
+        ):
+            return "anthropic" if self.anthropic_configured else None
+        if self.llm_provider in ("gemini", "auto") and self.gemini_configured:
+            return "gemini"
+        return None
+
+    @property
+    def llm_model(self) -> str | None:
+        return {"anthropic": self.anthropic_model, "gemini": self.gemini_model}.get(
+            self.active_llm or ""
+        )
 
 
 @lru_cache

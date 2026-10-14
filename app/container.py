@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.agent.gemini import GeminiCreate
 from app.agent.llm import Agent, anthropic_create
 from app.config import Settings
 from app.paypal import client_from_settings
@@ -34,6 +35,15 @@ class Container:
     chat_limiter: RateLimiter
 
 
+def make_llm(settings: Settings) -> Callable[..., Any] | None:
+    """Pick the LLM backend. Both expose the same call signature to the agent."""
+    if settings.active_llm == "anthropic":
+        return anthropic_create(settings.anthropic_api_key.get_secret_value())
+    if settings.active_llm == "gemini":
+        return GeminiCreate(settings.gemini_api_key.get_secret_value(), model=settings.gemini_model)
+    return None
+
+
 def build_container(
     settings: Settings,
     sessions: sessionmaker[Session],
@@ -52,11 +62,10 @@ def build_container(
             business_name=settings.business_name,
         )
         payouts = PayoutsAPI(paypal)
-    if llm_create is None and settings.anthropic_configured:
-        llm_create = anthropic_create(settings.anthropic_api_key.get_secret_value())
-    drafter = (
-        LLMDrafter(llm_create, model=settings.anthropic_model) if llm_create else TemplateDrafter()
-    )
+    if llm_create is None:
+        llm_create = make_llm(settings)
+    model = settings.llm_model or settings.anthropic_model
+    drafter = LLMDrafter(llm_create, model=model) if llm_create else TemplateDrafter()
     actions = ActionService(
         sessions,
         invoicing=invoicing,
@@ -68,7 +77,7 @@ def build_container(
         Agent(
             llm_create,
             handle_action=actions.handle,
-            model=settings.anthropic_model,
+            model=model,
             effort=settings.anthropic_effort,
         )
         if llm_create

@@ -20,6 +20,7 @@ def settings() -> Settings:
         paypal_invoicer_email="merchant@example.com",
         paypal_payer_email="payer@example.com",
         anthropic_api_key="",
+        gemini_api_key="",
         followups_enabled=False,
         paypal_webhook_id="WH-TEST",
     )
