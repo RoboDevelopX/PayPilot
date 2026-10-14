@@ -16,6 +16,7 @@ from app.paypal.client import PayPalClient
 from app.paypal.invoices import InvoicingAPI
 from app.services.actions import ActionService
 from app.services.conversations import ConversationStore
+from app.services.followups import LLMDrafter, TemplateDrafter
 from app.services.ratelimit import RateLimiter
 
 
@@ -46,10 +47,14 @@ def build_container(
             invoicer_email=settings.paypal_invoicer_email,
             business_name=settings.business_name,
         )
-    actions = ActionService(sessions, invoicing=invoicing)
-
     if llm_create is None and settings.anthropic_configured:
         llm_create = anthropic_create(settings.anthropic_api_key.get_secret_value())
+    drafter = (
+        LLMDrafter(llm_create, model=settings.anthropic_model) if llm_create else TemplateDrafter()
+    )
+    actions = ActionService(
+        sessions, invoicing=invoicing, drafter=drafter, business_name=settings.business_name
+    )
     agent = (
         Agent(
             llm_create,

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./paypilot.db"
     demo_mode: bool = False
     chat_rate_limit_per_minute: int = Field(default=20, ge=1)
+    followups_enabled: bool = True  # background job: poll open invoices, send due reminders
     followup_interval_seconds: int = Field(default=300, ge=10)
     http_timeout_seconds: float = 20.0
 
