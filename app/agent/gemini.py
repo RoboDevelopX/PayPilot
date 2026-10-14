@@ -99,13 +99,12 @@ class GeminiCreate:
         body["generationConfig"] = gen
 
         r = self._post(self.model, body)
-        if r.status_code in OVERLOADED and self.fallback_model:
-            # Free-tier models often answer 503 "high demand"; a lighter model usually has room.
+        if (r.status_code in OVERLOADED or r.status_code == 429) and self.fallback_model:
+            # Free-tier models often answer 503 "high demand", and free quotas are per model
+            # (gemini-3.8-flash allows only 20 requests a day), so a lighter model usually has room.
             r = self._post(self.fallback_model, body)
         if r.status_code == 429:
-            raise LLMUnavailable(
-                "The free AI quota is used up for the moment. Try again in a minute."
-            )
+            raise LLMUnavailable("The free AI quota is used up for now. Try again later.")
         if r.status_code in (401, 403):
             raise LLMUnavailable("The AI key was rejected (check GEMINI_API_KEY).")
         if r.status_code >= 400:

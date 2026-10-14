@@ -4,8 +4,8 @@
 
 ## Still to do before submitting
 
-- ☐ **Live sandbox check.** The build environment couldn't reach PayPal or the AI provider, so nothing has run against the live sandbox yet. With your keys in `.env`: `make invoice`, then `make smoke ARGS="--llm --record"`. Every step should print PASS.
-- ☐ **Commit the real recordings** that `--record` writes to `app/paypal/recorded/` (emails are redacted), replacing the hand-written ones.
+- ✓ **Live sandbox check.** Passed on 2026-10-14 with US sandbox accounts: `make invoice`, `make smoke ARGS="--llm --record"` (every step PASS) and `pytest -m live`.
+- ✓ **Real recordings committed.** `invoice.json` and `payout_get.json` are captures from the US sandbox (emails redacted); `payout_create.json` is still hand-written.
 - ☐ **Deploy to Render** from the blueprint, fill in the secrets, and open `/healthz`.
 - ☐ **Webhook:** create it in the sandbox app, set `PAYPAL_WEBHOOK_ID` on Render, pay a sandbox invoice as the Personal account, and check that PayPilot marks it paid.
 - ☐ **Record the video** with [DEMO_SCRIPT.md](DEMO_SCRIPT.md): no music you don't own, no unneeded third-party brands.
@@ -73,7 +73,7 @@
 | Falls back to recorded responses if the sandbox is flaky | ✓ | `app/paypal/recorded.py`; `tests/test_demo.py` |
 | Clearly labeled in the UI and README | ✓ | banner on every page, `demo-recorded-` debug ids, "Demo script" replies; README section |
 | Real sandbox path stays the default | ✓ | `DEMO_MODE=0` by default; recordings only wired in demo mode |
-| Recordings captured from the real sandbox | ◐ | hand-written from PayPal's documented shapes until you run `make smoke ARGS=--record` |
+| Recordings captured from the real sandbox | ◐ | `invoice.json` and `payout_get.json` captured 2026-10-14; `payout_create.json` hand-written |
 
 ## Stack and tooling
 

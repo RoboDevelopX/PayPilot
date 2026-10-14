@@ -148,7 +148,7 @@ Webhook events handled: `INVOICING.INVOICE.PAID`, `INVOICING.INVOICE.CANCELLED`,
 
 ## Setup with the real PayPal sandbox (under 10 minutes)
 
-1. **PayPal sandbox app (3 min).** Sign in at [developer.paypal.com](https://developer.paypal.com), open **Apps & Credentials**, make sure the toggle says **Sandbox**, and click **Create App** (type Merchant). Copy the **Client ID** and **Secret**. In the app's features, make sure **Invoicing** and **Payouts** are ticked.
+1. **PayPal sandbox app (3 min).** Sign in at [developer.paypal.com](https://developer.paypal.com), open **Apps & Credentials**, make sure the toggle says **Sandbox**, and click **Create App** (type Merchant). Copy the **Client ID** and **Secret**. In the app's features, make sure **Invoicing** and **Payouts** are ticked. If you tick a feature after the app has already asked for a token, PayPal keeps handing out the old token (without the new permission) for up to 9 hours, so calls still fail with 403 `NOT_AUTHORIZED`; `make paypal-token-reset` revokes it so the next call gets a fresh one.
 2. **Sandbox accounts (1 min).** Under **Testing Tools > Sandbox Accounts** you already have a **Business** account (the merchant your app acts as) and a **Personal** account (the client who pays). Copy both emails. You can log in to [sandbox.paypal.com](https://www.sandbox.paypal.com) as the Personal account to pay invoices.
 3. **AI key (2 min).** Free: get a Gemini key at [aistudio.google.com](https://aistudio.google.com) > **Get API key**. Or paid: an Anthropic key from [console.anthropic.com](https://console.anthropic.com).
 4. **Configure (1 min).** `make setup` created `.env`. Fill it in locally; never paste keys into a chat, issue or commit:

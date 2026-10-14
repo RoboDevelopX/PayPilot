@@ -3,7 +3,7 @@ PY ?= python3
 VENV := .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup run demo test lint fmt seed train smoke invoice secrets clean
+.PHONY: setup run demo test lint fmt seed train smoke invoice paypal-token-reset secrets clean
 
 setup:  ## create the venv, install deps, install the git pre-commit hook
 	$(PY) -m venv $(VENV)
@@ -42,6 +42,9 @@ train:  ## regenerate synthetic data, retrain both models, write metrics
 
 invoice:  ## M1 proof: one real sandbox invoice
 	$(BIN)/python -m scripts.create_sandbox_invoice
+
+paypal-token-reset:  ## after ticking an app feature: revoke PayPal's cached token, show scopes
+	$(BIN)/python -m scripts.paypal_token_reset
 
 smoke:  ## live end-to-end check against the PayPal sandbox (ARGS="--llm --record")
 	$(BIN)/python -m scripts.smoke_test $(ARGS)

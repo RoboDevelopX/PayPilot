@@ -1,10 +1,10 @@
 {
   "batch_header": {
-    "payout_batch_id": "RY2BBRGTQNSH8",
+    "payout_batch_id": "CDYBFXT4277BN",
     "batch_status": "PENDING",
-    "time_created": "2026-10-14T14:13:06Z",
+    "time_created": "2026-10-14T14:20:02Z",
     "sender_batch_header": {
-      "sender_batch_id": "bc65e432-0e3d-4c86-bb87-a23ab50fb110",
+      "sender_batch_id": "eef7532f-ae3b-4661-8b3d-722ab2fcf3e7",
       "email_subject": "You have a payment (PayPal sandbox)",
       "email_message": "PayPilot smoke test"
     },
@@ -16,9 +16,9 @@
   },
   "items": [
     {
-      "payout_item_id": "RSK8XFR6MDG3U",
+      "payout_item_id": "W7AXXMG9AF7W6",
       "transaction_status": "PENDING",
-      "payout_batch_id": "RY2BBRGTQNSH8",
+      "payout_batch_id": "CDYBFXT4277BN",
       "payout_item": {
         "recipient_type": "EMAIL",
         "amount": {
@@ -27,13 +27,13 @@
         },
         "note": "PayPilot smoke test",
         "receiver": "someone@example.com",
-        "sender_item_id": "bc65e432-0e3d-4c86-bb87-a23ab50fb110",
+        "sender_item_id": "eef7532f-ae3b-4661-8b3d-722ab2fcf3e7",
         "recipient_wallet": "PAYPAL",
         "purpose": "GOODS"
       },
       "links": [
         {
-          "href": "https://api.sandbox.paypal.com/v1/payments/payouts-item/RSK8XFR6MDG3U",
+          "href": "https://api.sandbox.paypal.com/v1/payments/payouts-item/W7AXXMG9AF7W6",
           "rel": "item",
           "method": "GET",
           "encType": "application/json"
@@ -43,7 +43,7 @@
   ],
   "links": [
     {
-      "href": "https://api.sandbox.paypal.com/v1/payments/payouts/RY2BBRGTQNSH8?page_size=1000&page=1",
+      "href": "https://api.sandbox.paypal.com/v1/payments/payouts/CDYBFXT4277BN?page_size=1000&page=1",
       "rel": "self",
       "method": "GET",
       "encType": "application/json"
