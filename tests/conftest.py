@@ -23,6 +23,7 @@ def settings() -> Settings:
         gemini_api_key="",
         followups_enabled=False,
         paypal_webhook_id="WH-TEST",
+        ml_enabled=False,  # ML behaviour is tested on its own in test_ml.py
     )
 
 

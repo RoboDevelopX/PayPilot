@@ -1,0 +1,178 @@
+{
+  "synthetic_data": true,
+  "late_payment_risk": {
+    "test_rows": 1001,
+    "test_late_rate": 0.3546,
+    "test_from": "2026-05-03T10:14:00+00:00",
+    "chosen": "logistic_regression",
+    "calibration": "sigmoid",
+    "validation_roc_auc": {
+      "logistic_regression": 0.7266,
+      "gradient_boosting": 0.7216
+    },
+    "test": {
+      "roc_auc": 0.7556,
+      "pr_auc": 0.6238,
+      "brier": 0.187,
+      "log_loss": 0.5553
+    },
+    "test_roc_auc_95ci": [
+      0.7247,
+      0.785
+    ],
+    "test_brier_95ci": [
+      0.1754,
+      0.1988
+    ],
+    "all_candidates": {
+      "logistic_regression+sigmoid": {
+        "roc_auc": 0.7556,
+        "pr_auc": 0.6238,
+        "brier": 0.187,
+        "log_loss": 0.5553
+      },
+      "logistic_regression+isotonic": {
+        "roc_auc": 0.7382,
+        "pr_auc": 0.5846,
+        "brier": 0.1906,
+        "log_loss": 0.5654
+      },
+      "gradient_boosting+sigmoid": {
+        "roc_auc": 0.7327,
+        "pr_auc": 0.6013,
+        "brier": 0.1935,
+        "log_loss": 0.5691
+      },
+      "gradient_boosting+isotonic": {
+        "roc_auc": 0.7294,
+        "pr_auc": 0.5686,
+        "brier": 0.1947,
+        "log_loss": 0.6026
+      }
+    },
+    "baselines": {
+      "base_rate": {
+        "description": "predict the training late rate (33.6%) for every invoice",
+        "roc_auc": 0.5,
+        "pr_auc": 0.3546,
+        "brier": 0.2292,
+        "log_loss": 0.6511
+      },
+      "client_history": {
+        "description": "predict the client's own past late rate (shrunk toward 30%)",
+        "roc_auc": 0.7475,
+        "pr_auc": 0.5926,
+        "brier": 0.1886,
+        "log_loss": 0.5577
+      }
+    },
+    "calibration_bins": [
+      {
+        "bin": "0.0-0.1",
+        "count": 65,
+        "mean_predicted": 0.091,
+        "observed_late_rate": 0.0923
+      },
+      {
+        "bin": "0.1-0.2",
+        "count": 160,
+        "mean_predicted": 0.154,
+        "observed_late_rate": 0.1125
+      },
+      {
+        "bin": "0.2-0.3",
+        "count": 284,
+        "mean_predicted": 0.2463,
+        "observed_late_rate": 0.2465
+      },
+      {
+        "bin": "0.3-0.4",
+        "count": 157,
+        "mean_predicted": 0.3438,
+        "observed_late_rate": 0.3439
+      },
+      {
+        "bin": "0.4-0.5",
+        "count": 84,
+        "mean_predicted": 0.4521,
+        "observed_late_rate": 0.5
+      },
+      {
+        "bin": "0.5-0.6",
+        "count": 132,
+        "mean_predicted": 0.5506,
+        "observed_late_rate": 0.6439
+      },
+      {
+        "bin": "0.6-0.7",
+        "count": 71,
+        "mean_predicted": 0.6322,
+        "observed_late_rate": 0.6056
+      },
+      {
+        "bin": "0.7-0.8",
+        "count": 19,
+        "mean_predicted": 0.7483,
+        "observed_late_rate": 0.7368
+      },
+      {
+        "bin": "0.8-0.9",
+        "count": 26,
+        "mean_predicted": 0.8487,
+        "observed_late_rate": 0.7692
+      },
+      {
+        "bin": "0.9-1.0",
+        "count": 3,
+        "mean_predicted": 0.9062,
+        "observed_late_rate": 1.0
+      }
+    ]
+  },
+  "payout_anomaly": {
+    "test_rows": 1225,
+    "test_anomalies": 27,
+    "threshold": 0.6013,
+    "review_budget": 0.03,
+    "test": {
+      "flagged": 35,
+      "flag_rate": 0.0286,
+      "precision": 0.6286,
+      "recall": 0.8148,
+      "f1": 0.7097,
+      "roc_auc": 0.9793,
+      "pr_auc": 0.8445
+    },
+    "test_pr_auc_95ci": [
+      0.7098,
+      0.9494
+    ],
+    "recall_by_type": {
+      "spike": {
+        "count": 9,
+        "caught": 8
+      },
+      "new_large": {
+        "count": 12,
+        "caught": 12
+      },
+      "burst": {
+        "count": 6,
+        "caught": 2
+      }
+    },
+    "baselines": {
+      "random": {
+        "description": "flag at random; PR-AUC equals the anomaly rate",
+        "pr_auc": 0.022
+      },
+      "generator_rule": {
+        "description": "hand-written rule mirroring how the anomalies were injected",
+        "flagged": 98,
+        "precision": 0.2551,
+        "recall": 0.9259,
+        "f1": 0.4
+      }
+    }
+  }
+}

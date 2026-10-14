@@ -67,7 +67,7 @@ PAYPAL_STATUS_TO_LOCAL = {
 }
 
 # (session, invoice) -> (risk probability, reasons). Supplied by the ML layer.
-RiskScorer = Callable[[Session, Invoice], tuple[float, list[str]]]
+RiskScorer = Callable[[Session, Invoice], tuple[float | None, list[str] | None]]
 # (session, payout fields) -> MLSignals. Supplied by the ML layer.
 AnomalyScorer = Callable[[Session, dict[str, Any]], MLSignals]
 
