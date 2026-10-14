@@ -1,10 +1,10 @@
 # PayPilot: Devpost write-up
 
-Paste each section into the matching Devpost field. Everything marked **[TODO: personal story]** is yours to write; nothing personal has been made up here. Other `[TODO: …]` markers are links you'll have after deploying and recording.
+Paste each section into the matching Devpost field. Everything marked **[TODO: personal story]** is yours to write; nothing personal has been made up here. The other `[TODO: …]` marker is the video link, which you'll have after recording.
 
 **Tagline:** Your AI co-pilot for getting paid and paying smart.
 
-**Links:** demo video [TODO: video link] · live app [TODO: Render URL] · code https://github.com/RoboDevelopX/PayPilot
+**Links:** demo video [TODO: video link] · live app https://paypilot-ytst.onrender.com · code https://github.com/RoboDevelopX/PayPilot
 
 ---
 
@@ -75,7 +75,7 @@ Technical problems the build had to solve, if you want to mention any:
 
 ## Testing instructions (for the Devpost testing field)
 
-- **Hosted app:** [TODO: Render URL]. It runs in labeled demo mode on the PayPal **sandbox**, with sample clients and payees, so no keys or logins are needed. The free Render instance sleeps when idle; the first page load can take about a minute.
+- **Hosted app:** https://paypilot-ytst.onrender.com. It runs in labeled demo mode on the PayPal **sandbox**, with sample clients and payees, so no keys or logins are needed. The free Render instance sleeps when idle; the first page load can take about a minute.
 - **Try this in Chat:** `Pay sam@example.com $40 for the icon set` (paid automatically), `Pay sam@example.com $120 for the brand guide` (held for approval), `Pay jo@example.com $160 for event photos` (escalated by the anomaly model), then approve them on the Approvals page. Every step appears in the Audit log. The hosted app is shared, so if earlier visitors used up today's $200 payout cap, a payout is blocked with that reason; the cap can be raised on the Rules page.
 - **Run it yourself in two minutes, no keys:** `git clone https://github.com/RoboDevelopX/PayPilot.git && cd PayPilot && make setup && make demo`, then open http://localhost:8000 (Python 3.11+).
 - **Against your own PayPal sandbox:** the README's "Setup with the real PayPal sandbox" section takes under 10 minutes, and `make smoke` checks every PayPal call live.
