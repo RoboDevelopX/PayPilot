@@ -14,7 +14,7 @@
 
 | Time | On screen | Do | Say (voice-over) |
 |---|---|---|---|
-| 0:00–0:12 | Dashboard | Slow scroll: money owed, overdue, spend vs caps | **[TODO: personal story]** One line on why you built this. Then: "PayPilot is an AI co-pilot for PayPal: it bills, pays and chases, inside rules the AI can't change." |
+| 0:00–0:12 | Dashboard | Slow scroll: money owed, overdue, spend vs caps | "Would you let an AI agent touch your PayPal account? I wouldn't, unless something other than the AI had the final say." Then: "PayPilot is an AI co-pilot for PayPal: it bills, pays and chases, inside rules the AI can't change." |
 | 0:12–0:25 | Rules page | Point at the limit ($50), daily cap ($200), allowlist | "Under fifty dollars, to people I already pay, it can act alone. Above that it asks me. The caps are hard limits, even for me." |
 | 0:25–0:45 | Chat | Type `Invoice Pine Street Bakery $600 for menu photos` (a client PayPilot hasn't seen, so there's no email on file), then answer the email question | "I describe the job. It asks for the one thing it's missing, then creates and sends a real PayPal sandbox invoice." Cut to the invoice in the sandbox tab for two seconds. |
 | 0:45–1:00 | Chat | `Pay sam@example.com $40 for the icon set`, then `Pay sam@example.com $120 for the brand guide` | "Forty dollars to a regular payee goes straight out through PayPal Payouts. A hundred and twenty is over my limit, so nothing moves: it waits for me, with the reason." |
